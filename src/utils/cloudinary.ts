@@ -105,7 +105,8 @@ async function buildSignatureFields(folder: string): Promise<Record<string, stri
  */
 export async function uploadImageToCloudinary(
   file: File,
-  providerId: string
+  providerId: string,
+  onProgress?: (progress: number) => void,
 ): Promise<CloudinaryImage> {
   if (!isCloudinaryConfigured()) {
     throw new Error(CLOUDINARY_NOT_CONFIGURED);
@@ -128,28 +129,35 @@ export async function uploadImageToCloudinary(
     body.append('folder', folder);
   }
 
-  let response: Response;
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 60_000);
-  try {
-    response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: 'POST',
-      body,
-      signal: controller.signal,
-    });
-  } catch {
-    if (controller.signal.aborted) {
-      throw new Error('Cloudinary upload timed out after 60 seconds. Check your connection and try again.');
-    }
-    throw new Error('Could not reach Cloudinary. Check your connection and try again.');
-  } finally {
-    window.clearTimeout(timeout);
-  }
+  const payload = await new Promise<CloudinaryUploadResponse>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`);
+    request.timeout = 60_000;
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    request.onload = () => {
+      const result = (() => {
+        try {
+          return JSON.parse(request.responseText) as CloudinaryUploadResponse;
+        } catch {
+          return {} as CloudinaryUploadResponse;
+        }
+      })();
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(result.error?.message ?? `Cloudinary returned HTTP ${request.status}.`));
+        return;
+      }
+      resolve(result);
+    };
+    request.onerror = () => reject(new Error('Could not reach Cloudinary. Check your connection and try again.'));
+    request.ontimeout = () => reject(new Error('Cloudinary upload timed out after 60 seconds. Check your connection and try again.'));
+    request.onabort = () => reject(new Error('Cloudinary upload was cancelled. Please retry.'));
+    request.send(body);
+  });
 
-  const payload = (await response.json().catch(() => ({}))) as CloudinaryUploadResponse;
-
-  if (!response.ok || !payload.secure_url || !payload.public_id) {
-    throw new Error(payload.error?.message ?? 'Cloudinary rejected the upload. Please try again.');
+  if (!payload.secure_url || !payload.public_id) {
+    throw new Error(payload.error?.message ?? 'Cloudinary did not return the uploaded image URL. Please retry.');
   }
 
   return { url: payload.secure_url, publicId: payload.public_id };

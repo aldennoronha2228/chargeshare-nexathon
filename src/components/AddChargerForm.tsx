@@ -1,10 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { getDownloadURL, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
 import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
-import { storage } from '../firebase';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
 import { validateProviderChargerForm } from '../utils/marketplaceLogic';
-import { optimizeImageForUpload } from '../utils/imageOptimization';
 import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
@@ -32,58 +30,8 @@ async function uploadPhoto(
   providerId: string,
   onProgress: (progress: number) => void,
 ): Promise<ChargerPhoto> {
-  const optimizedFile = await optimizeImageForUpload(file);
-  const safeBaseName = optimizedFile.name.replace(/[^a-zA-Z0-9._-]/g, '-') || 'charger-photo.webp';
-  const fileId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const path = `providers/${providerId}/chargers/${fileId}-${safeBaseName}`;
-  const fileReference = storageRef(storage, path);
-  const uploadTask = uploadBytesResumable(fileReference, optimizedFile, {
-    contentType: optimizedFile.type,
-  });
-  await new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const timeout = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      uploadTask.cancel();
-      reject(new Error('Upload timed out after 60 seconds. Check your connection and Firebase Storage setup, then retry.'));
-    }, 60_000);
-
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        onProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
-      },
-      (error) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        reject(error);
-      },
-      () => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        resolve();
-      },
-    );
-  });
-  let downloadUrl: string;
-  let urlTimeout: number | undefined;
-  try {
-    downloadUrl = await Promise.race([
-      getDownloadURL(fileReference),
-      new Promise<never>((_, reject) => {
-        urlTimeout = window.setTimeout(
-          () => reject(new Error('Photo uploaded, but Firebase did not return its URL. Check Storage configuration and retry.')),
-          30_000,
-        );
-      }),
-    ]);
-  } finally {
-    if (urlTimeout !== undefined) window.clearTimeout(urlTimeout);
-  }
-  return { name: file.name, url: downloadUrl, publicId: path };
+  const image = await uploadImageToCloudinary(file, providerId, onProgress);
+  return { name: file.name, url: image.url, publicId: image.publicId };
 }
 
 interface PhotoFieldProps {
