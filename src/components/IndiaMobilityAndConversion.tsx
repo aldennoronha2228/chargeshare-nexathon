@@ -1,6 +1,5 @@
 import React from 'react';
-import { ArrowRight, Zap, Building2, Home, Users, Download } from 'lucide-react';
-import { downloadProjectZip } from '../utils/projectZipDownload';
+import { ArrowRight, Zap, Building2, Home, Users } from 'lucide-react';
 
 interface IndiaMobilityAndConversionProps {
   onExploreChargers: () => void;
@@ -159,16 +158,16 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
             <div className="md:col-span-5 space-y-3">
               <a
                 href="#"
-                className="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-white font-display"
+                className="group inline-flex items-center gap-2.5 text-base sm:text-lg font-black tracking-[0.12em] uppercase whitespace-nowrap"
               >
-                <span className="w-8 h-8 rounded bg-[#D8F36A] p-1.5 inline-flex items-center justify-center shrink-0 shadow-xs">
-                  <img
-                    src="/logo-square-dark.png"
-                    alt="ChargeShare logo mark"
-                    className="w-full h-full object-contain"
-                  />
+                <img
+                  src="/logo-mark-lime.png"
+                  alt="ChargeShare emblem"
+                  className="h-6 sm:h-7 w-auto object-contain filter drop-shadow-[0_0_8px_rgba(216,243,106,0.55)] group-hover:scale-105 transition-transform"
+                />
+                <span className="text-white">
+                  CHARGE<span className="text-[#D8F36A]">SHARE</span>
                 </span>
-                ChargeShare
               </a>
               <p className="text-sm text-[#B8BDB3] max-w-sm leading-relaxed">
                 Your driveway. Someone’s next charge. A peer-to-peer EV charging marketplace connecting
@@ -231,16 +230,6 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                     className="hover:text-white hover:underline underline-offset-4 cursor-pointer text-left"
                   >
                     Terms and Privacy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={downloadProjectZip}
-                    className="text-[#D8F36A] font-mono text-xs hover:text-white hover:underline underline-offset-4 inline-flex items-center gap-1.5 pt-1 cursor-pointer text-left"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Project Folder (.zip)</span>
                   </button>
                 </li>
               </ul>

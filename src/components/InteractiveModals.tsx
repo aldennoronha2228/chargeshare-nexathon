@@ -456,13 +456,11 @@ export const InfoPolicyModal: React.FC<InfoPolicyModalProps> = ({ topic, onClose
       <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded-lg max-w-lg w-full p-5 sm:p-7 relative my-auto max-h-[92vh] flex flex-col shadow-2xl">
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#D8D5CA] shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded bg-[#173D2C] p-1 inline-flex items-center justify-center shrink-0">
-              <img
-                src="/logo-square-lime.png"
-                alt="ChargeShare logo mark"
-                className="w-full h-full object-contain"
-              />
-            </span>
+            <img
+              src="/logo-mark-dark.png"
+              alt="ChargeShare emblem"
+              className="w-5 h-6 object-contain shrink-0"
+            />
             <h2 id="policy-modal-title" className="text-lg font-bold font-display text-[#22251F]">
               {topic === 'support'
                 ? 'ChargeShare Help & Support'

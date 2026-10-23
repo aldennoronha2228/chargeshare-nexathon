@@ -247,7 +247,7 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   revealMesh.position.set(pierX, pierY, pierZ + 0.08);
   group.add(revealMesh);
 
-  // 2. Heavy Steel Mounting Plinth & 4 Anchor Bolts + Ground Contact Shadow
+  // 2. Heavy Steel Mounting Plinth & 4 Instanced Anchor Bolts + Ground Contact Shadow
   const plinthGeo = new THREE.BoxGeometry(0.88, 0.12, 0.66);
   const boltGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.15, 8);
   geometries.push(plinthGeo, boltGeo);
@@ -263,11 +263,18 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
     [-0.38, 0.26],
     [0.38, 0.26],
   ];
-  boltOffsets.forEach(([bx, bz]) => {
-    const bolt = new THREE.Mesh(boltGeo, brushedSteelMat);
-    bolt.position.set(pierX + bx, 0.08, pierZ + bz);
-    group.add(bolt);
+  const boltsInstanced = new THREE.InstancedMesh(boltGeo, brushedSteelMat, boltOffsets.length);
+  const _dummy = new THREE.Object3D();
+  boltOffsets.forEach(([bx, bz], idx) => {
+    _dummy.position.set(pierX + bx, 0.08, pierZ + bz);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    boltsInstanced.setMatrixAt(idx, _dummy.matrix);
   });
+  boltsInstanced.instanceMatrix.needsUpdate = true;
+  boltsInstanced.computeBoundingSphere();
+  group.add(boltsInstanced);
 
   // Contact shadow under pier
   const pierShadowTex = createPierContactShadowTexture();
@@ -301,7 +308,7 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   plaqueMesh.position.set(pierX - 0.06, 2.38, pierZ + 0.28);
   group.add(plaqueMesh);
 
-  // 4. Manufactured EV Wallbox Unit (Rear Die-Cast Heatsink + Fin Array)
+  // 4. Manufactured EV Wallbox Unit (Rear Die-Cast Heatsink + Instanced Fin Array)
   const wallboxGroup = new THREE.Group();
   wallboxGroup.position.set(wbX, wbY, wbZ);
   // Slight angle toward the driveway camera & vehicle for ergonomic access
@@ -314,14 +321,19 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
 
   const heatsinkBack = new THREE.Mesh(heatsinkBackGeo, darkMetalMat);
   heatsinkBack.position.set(0, 0, -0.05);
-  heatsinkBack.castShadow = true;
   wallboxGroup.add(heatsinkBack);
 
+  const finsInstanced = new THREE.InstancedMesh(finGeo, darkMetalMat, 7);
   for (let i = -3; i <= 3; i++) {
-    const fin = new THREE.Mesh(finGeo, darkMetalMat);
-    fin.position.set(0, 0, -0.08 + i * 0.01);
-    wallboxGroup.add(fin);
+    _dummy.position.set(0, 0, -0.08 + i * 0.01);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    finsInstanced.setMatrixAt(i + 3, _dummy.matrix);
   }
+  finsInstanced.instanceMatrix.needsUpdate = true;
+  finsInstanced.computeBoundingSphere();
+  wallboxGroup.add(finsInstanced);
 
   // 5. Sculpted Front Polycarbonate & Anodized Aluminum Enclosure (ExtrudeGeometry)
   const shape = new THREE.Shape();
@@ -341,7 +353,7 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   const chassisGeo = new THREE.ExtrudeGeometry(shape, {
     depth: 0.11,
     bevelEnabled: true,
-    bevelSegments: 4,
+    bevelSegments: 3,
     steps: 1,
     bevelSize: 0.016,
     bevelThickness: 0.018,
@@ -371,20 +383,28 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   bezelMesh.position.set(0, 0.01, 0.11);
   wallboxGroup.add(bezelMesh);
 
-  // 6. Flush Tempered Glass Front Panel & High-Contrast OLED Display
-  const currentOledTex = createOledDisplayTexture('charging', maxAnisotropy);
-  textures.push(currentOledTex);
+  // 6. Flush Tempered Glass Front Panel & Pre-Cached High-Contrast OLED Displays
+  const oledTextureCache: Record<ChargerVisualState, THREE.CanvasTexture> = {
+    charging: createOledDisplayTexture('charging', maxAnisotropy),
+    standby: createOledDisplayTexture('standby', maxAnisotropy),
+    reserved: createOledDisplayTexture('reserved', maxAnisotropy),
+  };
+  textures.push(
+    oledTextureCache.charging,
+    oledTextureCache.standby,
+    oledTextureCache.reserved
+  );
 
   const screenGeo = new THREE.PlaneGeometry(0.36, 0.46);
   geometries.push(screenGeo);
   const screenMat = new THREE.MeshPhysicalMaterial({
-    map: currentOledTex,
+    map: oledTextureCache.charging,
     roughness: 0.08,
     metalness: 0.1,
     clearcoat: 1.0,
     clearcoatRoughness: 0.04,
     emissive: 0xffffff,
-    emissiveMap: currentOledTex,
+    emissiveMap: oledTextureCache.charging,
     emissiveIntensity: 0.68,
   });
   materials.push(screenMat);
@@ -409,9 +429,9 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   wallboxGroup.add(ledBarMesh);
 
   // 8. Industrial Type-2 Dock Socket, Strain-Relief Gland & Armored Steel Conduit
-  const holsterGeo = new THREE.CylinderGeometry(0.052, 0.058, 0.065, 24);
-  const glandGeo = new THREE.CylinderGeometry(0.028, 0.036, 0.09, 16);
-  const conduitGeo = new THREE.CylinderGeometry(0.018, 0.018, 1.18, 16);
+  const holsterGeo = new THREE.CylinderGeometry(0.052, 0.058, 0.065, 20);
+  const glandGeo = new THREE.CylinderGeometry(0.028, 0.036, 0.09, 12);
+  const conduitGeo = new THREE.CylinderGeometry(0.018, 0.018, 1.18, 12);
   const clampGeo = new THREE.BoxGeometry(0.06, 0.025, 0.045);
   geometries.push(holsterGeo, glandGeo, conduitGeo, clampGeo);
 
@@ -435,21 +455,26 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   // Armored Steel Supply Conduit Pipe running down the side of the concrete pier
   const conduitMesh = new THREE.Mesh(conduitGeo, brushedSteelMat);
   conduitMesh.position.set(pierX + 0.26, 0.65, pierZ + 0.22);
-  conduitMesh.castShadow = true;
   group.add(conduitMesh);
 
-  [0.32, 0.72, 1.12].forEach((cy) => {
-    const clamp = new THREE.Mesh(clampGeo, darkMetalMat);
-    clamp.position.set(pierX + 0.26, cy, pierZ + 0.22);
-    group.add(clamp);
+  const clampYCoords = [0.32, 0.72, 1.12];
+  const clampsInstanced = new THREE.InstancedMesh(clampGeo, darkMetalMat, clampYCoords.length);
+  clampYCoords.forEach((cy, idx) => {
+    _dummy.position.set(pierX + 0.26, cy, pierZ + 0.22);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    clampsInstanced.setMatrixAt(idx, _dummy.matrix);
   });
+  clampsInstanced.instanceMatrix.needsUpdate = true;
+  clampsInstanced.computeBoundingSphere();
+  group.add(clampsInstanced);
 
   // Sub-meter / RCCB Weatherproof Breaker Box below Wallbox on Pier
   const breakerBoxGeo = new THREE.BoxGeometry(0.24, 0.3, 0.11);
   geometries.push(breakerBoxGeo);
-  const breakerBox = new THREE.Mesh(breakerBoxGeo, chassisMat);
+  const breakerBox = new THREE.Mesh(breakerBoxGeo, darkMetalMat);
   breakerBox.position.set(pierX + 0.16, 0.78, pierZ + 0.24);
-  breakerBox.castShadow = true;
   group.add(breakerBox);
 
   // 9. Realistic Catenary EPDM Rubber Charging Cable & Type-2 Vehicle Connector Plug
@@ -458,7 +483,7 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   );
   const cableCurve = new THREE.CatmullRomCurve3(controlPts);
 
-  const cableGeo = new THREE.TubeGeometry(cableCurve, 64, 0.019, 16, false);
+  const cableGeo = new THREE.TubeGeometry(cableCurve, 48, 0.019, 12, false);
   geometries.push(cableGeo);
   const cableMesh = new THREE.Mesh(cableGeo, rubberMat);
   cableMesh.castShadow = true;
@@ -474,10 +499,10 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   group.add(connectorGroup);
 
   // Flush Vehicle Charge Port Socket Bezel on Fender
-  const socketFlangeGeo = new THREE.CylinderGeometry(0.068, 0.068, 0.024, 24);
-  const plugBarrelGeo = new THREE.CylinderGeometry(0.036, 0.042, 0.13, 20);
-  const plugGripGeo = new THREE.CylinderGeometry(0.028, 0.034, 0.14, 16);
-  const statusCollarGeo = new THREE.TorusGeometry(0.038, 0.0045, 12, 24);
+  const socketFlangeGeo = new THREE.CylinderGeometry(0.068, 0.068, 0.024, 20);
+  const plugBarrelGeo = new THREE.CylinderGeometry(0.036, 0.042, 0.13, 16);
+  const plugGripGeo = new THREE.CylinderGeometry(0.028, 0.034, 0.14, 14);
+  const statusCollarGeo = new THREE.TorusGeometry(0.038, 0.0045, 10, 20);
   geometries.push(socketFlangeGeo, plugBarrelGeo, plugGripGeo, statusCollarGeo);
 
   const socketFlange = new THREE.Mesh(socketFlangeGeo, darkMetalMat);
@@ -497,7 +522,6 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   const plugBarrel = new THREE.Mesh(plugBarrelGeo, rubberMat);
   plugBarrel.rotation.x = Math.PI / 2;
   plugBarrel.position.set(0, 0, 0.055);
-  plugBarrel.castShadow = true;
   connectorGroup.add(plugBarrel);
 
   // Subtle Lime Status Collar Ring on Type-2 Connector
@@ -506,10 +530,9 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   connectorGroup.add(statusCollar);
 
   // Angled Ergonomic Handle Grip
-  const plugGrip = new THREE.Mesh(plugGripGeo, chassisMat);
+  const plugGrip = new THREE.Mesh(plugGripGeo, darkMetalMat);
   plugGrip.rotation.x = Math.PI / 2 + 0.38;
   plugGrip.position.set(0, -0.028, 0.145);
-  plugGrip.castShadow = true;
   connectorGroup.add(plugGrip);
   clickableMeshes.push(plugGrip);
 
@@ -518,11 +541,12 @@ export function createChargerModel(maxAnisotropy: number): ChargerModelHandle {
   const setChargerState = (state: ChargerVisualState) => {
     currentState = state;
     const spec = getChargerStatusVisualSpec(state);
-    const nextTex = createOledDisplayTexture(state, maxAnisotropy);
-    textures.push(nextTex);
-    screenMat.map = nextTex;
-    screenMat.emissiveMap = nextTex;
-    screenMat.needsUpdate = true;
+    const nextTex = oledTextureCache[state] || oledTextureCache.charging;
+    if (screenMat.map !== nextTex) {
+      screenMat.map = nextTex;
+      screenMat.emissiveMap = nextTex;
+      screenMat.needsUpdate = true;
+    }
 
     ledBarMat.color.setHex(spec.ledHex);
     ledBarMat.emissive.setHex(spec.ledHex);

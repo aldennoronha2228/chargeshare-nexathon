@@ -95,15 +95,19 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
     };
 
     const isMobileDevice = window.innerWidth < 768;
-    const maxDpr = isMobileDevice ? 1.6 : 2;
+    let currentDpr = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, isMobileDevice ? 1.35 : 1.5);
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.06;
-    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, maxDpr));
+    renderer.setPixelRatio(currentDpr);
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = !isSoftwareGl;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    // Static shadow map baking: all shadow casters (car, residence, pier, plants) are stationary,
+    // eliminating the 1536x1536 shadow pass on every animation frame while keeping identical shadow quality.
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = !isSoftwareGl;
     renderer.domElement.style.touchAction = 'pan-y';
 
     mountEl.innerHTML = '';
@@ -114,16 +118,27 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
     const camera = new THREE.PerspectiveCamera(computeFov(initialAspect), initialAspect, 0.1, 120);
 
     const lightsRig = setupSceneLighting(scene, renderer, isSoftwareGl);
-    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+    const maxAniso = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
 
     const chargerModel = createChargerModel(maxAniso);
     chargerModel.setChargerState(chargerStateRef.current);
     scene.add(chargerModel.group);
     chargerHandleRef.current = chargerModel;
 
-    const neighbourhood = createNeighbourhoodScene(maxAniso, () => {
-      setVehicleLoaded(true);
-    });
+    const handleSceneAssetsUpdated = () => {
+      if (!isSoftwareGl) {
+        renderer.shadowMap.needsUpdate = true;
+      }
+    };
+
+    const neighbourhood = createNeighbourhoodScene(
+      maxAniso,
+      () => {
+        setVehicleLoaded(true);
+        handleSceneAssetsUpdated();
+      },
+      handleSceneAssetsUpdated
+    );
     scene.add(neighbourhood.rootGroup);
     neighbourhoodHandleRef.current = neighbourhood;
 
@@ -186,17 +201,26 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
     });
     resizeObserver.observe(mountEl);
 
+    let isOccludedByOpaqueSections = false;
+    const handleScrollOcclusion = () => {
+      const safetyEl = document.getElementById('safety');
+      isOccludedByOpaqueSections =
+        safetyEl !== null && safetyEl.getBoundingClientRect().top <= 0;
+    };
+
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('scroll', handleScrollOcclusion, { passive: true });
     window.addEventListener('resize', handleResize);
     renderer.domElement.addEventListener('click', handleCanvasClick);
     renderer.domElement.addEventListener('webglcontextlost', handleContextLost);
     renderer.domElement.addEventListener('webglcontextrestored', handleContextRestored);
 
-    // Software WebGL safe animation loop using fenceSync afterDraw
+    // Software WebGL safe animation loop + Adaptive DPR governor for integrated laptop GPUs
     const startTimeMs = performance.now();
     let lastTimeMs = startTimeMs;
     let frameId = 0;
     let disposed = false;
+    let slowFrameCount = 0;
 
     function afterDraw(cb: () => void) {
       if (disposed) return;
@@ -223,20 +247,36 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
     function tick() {
       if (disposed) return;
       const nowMs = performance.now();
-      const delta = Math.min((nowMs - lastTimeMs) * 0.001, 0.1);
+      const rawDeltaMs = nowMs - lastTimeMs;
+      const delta = Math.min(rawDeltaMs * 0.001, 0.1);
       lastTimeMs = nowMs;
       const elapsed = (nowMs - startTimeMs) * 0.001;
 
-      scrollCtrlRef.current.updateCamera(camera, delta, reducedMotion);
-      chargerModel.updateAnimation(elapsed, delta);
-      neighbourhood.updateAnimation(elapsed, scrollCtrlRef.current.currentNetworkWeight);
+      if (!document.hidden && !isOccludedByOpaqueSections) {
+        // Adaptive DPR governor: if an integrated laptop GPU experiences sustained slow frames (> 24ms),
+        // smoothly step down pixel ratio towards 1.0 to maintain 60 FPS without touching scene geometry or materials.
+        if (!isSoftwareGl && currentDpr > 1.0 && rawDeltaMs > 24 && rawDeltaMs < 250) {
+          slowFrameCount++;
+          if (slowFrameCount >= 22) {
+            currentDpr = Math.max(1.0, Number((currentDpr - 0.2).toFixed(2)));
+            renderer.setPixelRatio(currentDpr);
+            slowFrameCount = 0;
+          }
+        } else if (rawDeltaMs < 18) {
+          slowFrameCount = Math.max(0, slowFrameCount - 1);
+        }
 
-      lightsRig.chargerGlowLight.intensity =
-        chargerStateRef.current === 'charging'
-          ? 0.28 + Math.sin(elapsed * 2.4) * 0.06
-          : 0.12;
+        scrollCtrlRef.current.updateCamera(camera, delta, reducedMotion);
+        chargerModel.updateAnimation(elapsed, delta);
+        neighbourhood.updateAnimation(elapsed, scrollCtrlRef.current.currentNetworkWeight);
 
-      renderer.render(scene, camera);
+        lightsRig.chargerGlowLight.intensity =
+          chargerStateRef.current === 'charging'
+            ? 0.28 + Math.sin(elapsed * 2.4) * 0.06
+            : 0.12;
+
+        renderer.render(scene, camera);
+      }
 
       if (isSoftwareGl) {
         afterDraw(tick);
@@ -253,6 +293,7 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
       clearTimeout(frameId);
       resizeObserver.disconnect();
       window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('scroll', handleScrollOcclusion);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleCanvasClick);
       renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
@@ -342,7 +383,7 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
               <button
                 type="button"
                 onClick={onBecomeHostClick}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 sm:px-7 py-3 sm:py-3.5 text-[11px] sm:text-xs font-bold tracking-[0.08em] uppercase text-[#F6F3E9] bg-[#0D1D16]/45 backdrop-blur-xs border border-[#D8F36A]/80 rounded-[4px] hover:bg-[#173D2C] active:bg-[#112E21] transition-colors whitespace-nowrap cursor-pointer min-h-[46px] sm:min-h-[48px]"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 sm:px-7 py-3 sm:py-3.5 text-[11px] sm:text-xs font-bold tracking-[0.08em] uppercase text-[#F6F3E9] bg-[#0D1D16]/80 border border-[#D8F36A]/80 rounded-[4px] hover:bg-[#173D2C] active:bg-[#112E21] transition-colors whitespace-nowrap cursor-pointer min-h-[46px] sm:min-h-[48px]"
               >
                 <span>BECOME A HOST</span>
               </button>

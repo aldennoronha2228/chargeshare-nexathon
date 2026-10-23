@@ -94,7 +94,8 @@ function createIndianEvLicensePlateTexture(maxAnisotropy: number): THREE.CanvasT
 
 export function createNeighbourhoodScene(
   maxAnisotropy: number,
-  onVehicleLoaded?: () => void
+  onVehicleLoaded?: () => void,
+  onSceneAssetsUpdated?: () => void
 ): NeighbourhoodSceneHandle {
   const rootGroup = new THREE.Group();
   rootGroup.name = 'ChargeShareWorld';
@@ -104,6 +105,7 @@ export function createNeighbourhoodScene(
   const materials: THREE.Material[] = [];
   const textures: THREE.Texture[] = [];
   const clickableMeshes: THREE.Object3D[] = [];
+  const _dummy = new THREE.Object3D();
 
   const texLoader = new THREE.TextureLoader();
   const loadTiledTexture = (
@@ -112,7 +114,9 @@ export function createNeighbourhoodScene(
     repeatX: number,
     repeatY: number
   ): THREE.Texture => {
-    const tex = texLoader.load(url);
+    const tex = texLoader.load(url, () => {
+      if (!disposed) onSceneAssetsUpdated?.();
+    });
     tex.colorSpace = isColor ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
@@ -128,7 +132,8 @@ export function createNeighbourhoodScene(
   const paversDiff = loadTiledTexture('/textures/pavers_diff.jpg', true, 16, 16);
   const paversNor = loadTiledTexture('/textures/pavers_nor.jpg', false, 16, 16);
 
-  const groundGeo = new THREE.PlaneGeometry(76, 76, 64, 64);
+  // Flat ground plane uses 1x1 segments (2 triangles instead of 8,192) with identical normal-mapped PBR shading
+  const groundGeo = new THREE.PlaneGeometry(76, 76, 1, 1);
   geometries.push(groundGeo);
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x707a75,
@@ -151,7 +156,7 @@ export function createNeighbourhoodScene(
   const asphaltDiff = loadTiledTexture('/textures/asphalt_diff.jpg', true, 16, 3);
   const asphaltNor = loadTiledTexture('/textures/asphalt_nor.jpg', false, 16, 3);
 
-  const streetGeo = new THREE.PlaneGeometry(76, 6.5);
+  const streetGeo = new THREE.PlaneGeometry(76, 6.5, 1, 1);
   geometries.push(streetGeo);
   const streetMat = new THREE.MeshStandardMaterial({
     color: 0x565d5a,
@@ -256,14 +261,13 @@ export function createNeighbourhoodScene(
     roughness: 0.32,
     metalness: 0.84,
   });
-  const archGlassMat = new THREE.MeshPhysicalMaterial({
+  const archGlassMat = new THREE.MeshStandardMaterial({
     color: 0x121d18,
     roughness: 0.06,
-    metalness: 0.12,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.03,
+    metalness: 0.15,
     transparent: true,
     opacity: 0.42,
+    depthWrite: false,
     envMapIntensity: 1.8,
   });
   const warmCoveLightMat = new THREE.MeshStandardMaterial({
@@ -337,7 +341,7 @@ export function createNeighbourhoodScene(
   plinthDeck.receiveShadow = true;
   residenceGroup.add(plinthDeck);
 
-  // B. Floor-to-Ceiling Low-Iron Glass Curtain Wall & Dark Bronze Aluminum Mullions (z = -2.1)
+  // B. Floor-to-Ceiling Low-Iron Glass Curtain Wall & Instanced Dark Bronze Aluminum Mullions (z = -2.1)
   const glassPaneGeo = new THREE.PlaneGeometry(6.8, 3.2);
   const vMullionGeo = new THREE.BoxGeometry(0.055, 3.3, 0.09);
   const hTransomGeo = new THREE.BoxGeometry(6.9, 0.06, 0.09);
@@ -347,12 +351,22 @@ export function createNeighbourhoodScene(
   glassCurtain.position.set(2.4, 1.72, -2.1);
   residenceGroup.add(glassCurtain);
 
-  [-0.95, 0.72, 2.4, 4.08, 5.75].forEach((mx) => {
-    const mullion = new THREE.Mesh(vMullionGeo, bronzeMullionMat);
-    mullion.position.set(mx, 1.72, -2.1);
-    mullion.castShadow = true;
-    residenceGroup.add(mullion);
+  const mullionXCoords = [-0.95, 0.72, 2.4, 4.08, 5.75];
+  const vMullionsInstanced = new THREE.InstancedMesh(
+    vMullionGeo,
+    bronzeMullionMat,
+    mullionXCoords.length
+  );
+  mullionXCoords.forEach((mx, idx) => {
+    _dummy.position.set(mx, 1.72, -2.1);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    vMullionsInstanced.setMatrixAt(idx, _dummy.matrix);
   });
+  vMullionsInstanced.instanceMatrix.needsUpdate = true;
+  vMullionsInstanced.computeBoundingSphere();
+  residenceGroup.add(vMullionsInstanced);
 
   [0.18, 2.55, 3.32].forEach((ty) => {
     const transom = new THREE.Mesh(hTransomGeo, bronzeMullionMat);
@@ -360,7 +374,7 @@ export function createNeighbourhoodScene(
     residenceGroup.add(transom);
   });
 
-  // C. Cantilevered Architectural Concrete Carport Canopy + Burmese Teak Slatted Soffit
+  // C. Cantilevered Architectural Concrete Carport Canopy + Instanced Burmese Teak Slatted Soffit
   const canopySlabGeo = new THREE.BoxGeometry(7.6, 0.34, 4.8);
   const canopyFasciaGeo = new THREE.BoxGeometry(7.66, 0.38, 0.06);
   const teakSlatGeo = new THREE.BoxGeometry(7.2, 0.035, 0.11);
@@ -378,12 +392,18 @@ export function createNeighbourhoodScene(
   canopyFascia.position.set(2.2, 3.52, 1.06);
   residenceGroup.add(canopyFascia);
 
-  // 22 Burmese Teak Timber Slats lining the underside of the carport soffit (y = 3.33)
+  // 22 Burmese Teak Timber Slats lining the underside of the carport soffit (1 single InstancedMesh draw call)
+  const slatsInstanced = new THREE.InstancedMesh(teakSlatGeo, teakWoodMat, 22);
   for (let i = 0; i < 22; i++) {
-    const slat = new THREE.Mesh(teakSlatGeo, teakWoodMat);
-    slat.position.set(2.2, 3.33, -3.45 + i * 0.2);
-    residenceGroup.add(slat);
+    _dummy.position.set(2.2, 3.33, -3.45 + i * 0.2);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    slatsInstanced.setMatrixAt(i, _dummy.matrix);
   }
+  slatsInstanced.instanceMatrix.needsUpdate = true;
+  slatsInstanced.computeBoundingSphere();
+  residenceGroup.add(slatsInstanced);
 
   // 3 Recessed Warm 3000K Architectural Linear Light Bars in the Carport Soffit
   [-0.2, 1.85, 3.9].forEach((lx) => {
@@ -392,7 +412,7 @@ export function createNeighbourhoodScene(
     residenceGroup.add(ledStrip);
   });
 
-  // D. Second-Floor Architectural Residence Volume, Balcony Glass & Vertical Teak Louver Screen
+  // D. Second-Floor Architectural Residence Volume, Balcony Glass & Instanced Vertical Teak Louver Screen
   const upperVolumeGeo = new THREE.BoxGeometry(7.0, 2.7, 3.4);
   const upperRoofOverhangGeo = new THREE.BoxGeometry(7.5, 0.24, 4.1);
   const verticalLouverGeo = new THREE.BoxGeometry(0.045, 2.55, 0.16);
@@ -407,17 +427,20 @@ export function createNeighbourhoodScene(
 
   const upperRoof = new THREE.Mesh(upperRoofOverhangGeo, darkConcreteMat);
   upperRoof.position.set(2.4, 6.48, -2.95);
-  upperRoof.castShadow = true;
   residenceGroup.add(upperRoof);
 
-  // 20 Vertical Teak Privacy Louver Blades on Upper Facade
+  // 20 Vertical Teak Privacy Louver Blades on Upper Facade (1 single InstancedMesh draw call)
+  const louversInstanced = new THREE.InstancedMesh(verticalLouverGeo, teakWoodMat, 20);
   for (let i = 0; i < 20; i++) {
-    const blade = new THREE.Mesh(verticalLouverGeo, teakWoodMat);
-    blade.position.set(-0.75 + i * 0.15, 5.02, -1.38);
-    blade.rotation.y = 0.28;
-    blade.castShadow = true;
-    residenceGroup.add(blade);
+    _dummy.position.set(-0.75 + i * 0.15, 5.02, -1.38);
+    _dummy.rotation.set(0, 0.28, 0);
+    _dummy.scale.setScalar(1);
+    _dummy.updateMatrix();
+    louversInstanced.setMatrixAt(i, _dummy.matrix);
   }
+  louversInstanced.instanceMatrix.needsUpdate = true;
+  louversInstanced.computeBoundingSphere();
+  residenceGroup.add(louversInstanced);
 
   // Frameless Glass Terrace Balustrade on Upper Cantilever
   const balconyGlass = new THREE.Mesh(balconyGlassGeo, archGlassMat);
@@ -426,13 +449,12 @@ export function createNeighbourhoodScene(
 
   // E. Perimeter Architectural Compound Wall & Bollard Lights
   const compoundWallGeo = new THREE.BoxGeometry(16.0, 1.75, 0.28);
-  const bollardBodyGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.68, 16);
-  const bollardLensGeo = new THREE.CylinderGeometry(0.052, 0.052, 0.08, 16);
+  const bollardBodyGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.68, 12);
+  const bollardLensGeo = new THREE.CylinderGeometry(0.052, 0.052, 0.08, 12);
   geometries.push(compoundWallGeo, bollardBodyGeo, bollardLensGeo);
 
   const backCompoundWall = new THREE.Mesh(compoundWallGeo, darkConcreteMat);
   backCompoundWall.position.set(-8.5, 0.875, -4.45);
-  backCompoundWall.castShadow = true;
   backCompoundWall.receiveShadow = true;
   residenceGroup.add(backCompoundWall);
 
@@ -445,7 +467,6 @@ export function createNeighbourhoodScene(
   bollardCoords.forEach(([bx, bz]) => {
     const bBody = new THREE.Mesh(bollardBodyGeo, bronzeMullionMat);
     bBody.position.set(bx, 0.34, bz);
-    bBody.castShadow = true;
     residenceGroup.add(bBody);
 
     const bLens = new THREE.Mesh(bollardLensGeo, warmCoveLightMat);
@@ -454,7 +475,7 @@ export function createNeighbourhoodScene(
   });
 
   // ============================================================================
-  // 3. ARCHITECTURAL PLANTER BEDS & REAL 3D BOTANICAL FOLIAGE (GLTF)
+  // 3. ARCHITECTURAL PLANTER BEDS & INSTANCED REAL 3D BOTANICAL FOLIAGE (GLTF)
   // ============================================================================
   const planterWallGeo = new THREE.BoxGeometry(3.2, 0.42, 0.95);
   const planterSoilGeo = new THREE.BoxGeometry(3.04, 0.36, 0.79);
@@ -486,6 +507,7 @@ export function createNeighbourhoodScene(
   rootGroup.add(botanicalGroup);
 
   const gltfLoader = new GLTFLoader();
+  gltfLoader.register(() => ({ name: 'KHR_materials_diffuse_transmission' }));
   gltfLoader.load(
     '/models/DiffuseTransmissionPlant.glb',
     (gltf) => {
@@ -505,41 +527,54 @@ export function createNeighbourhoodScene(
 
       if (leavesMesh) {
         const srcLeaves = leavesMesh as THREE.Mesh;
-        srcLeaves.castShadow = true;
-        srcLeaves.receiveShadow = true;
-        if (srcLeaves.material) {
-          const lMat = srcLeaves.material as THREE.MeshStandardMaterial;
-          lMat.roughness = 0.46;
-          lMat.metalness = 0.04;
-          lMat.side = THREE.DoubleSide;
-          materials.push(lMat);
-        }
+        const origMat = srcLeaves.material as THREE.MeshStandardMaterial;
 
-        // Place full ceramic potted plants beside the residence shear wall & terrace
+        // Replace heavy KHR_materials_diffuse_transmission / MeshPhysicalMaterial with a fast
+        // MeshStandardMaterial using the exact same botanical textures so Three.js NEVER runs a second transmission render pass
+        const fastLeafMat = new THREE.MeshStandardMaterial({
+          color: origMat?.color ? origMat.color.clone() : new THREE.Color(0xffffff),
+          map: origMat?.map || null,
+          normalMap: origMat?.normalMap || null,
+          roughnessMap: origMat?.roughnessMap || null,
+          roughness: 0.46,
+          metalness: 0.04,
+          side: THREE.DoubleSide,
+          alphaTest: origMat?.alphaTest || 0.35,
+        });
+        materials.push(fastLeafMat);
+
+        const potPlacements: { pos: [number, number, number]; scale: number; rotY: number }[] = [
+          { pos: [2.85, 0.18, -1.65], scale: 1.45, rotY: 1.8 },
+          { pos: [3.45, 0.39, -1.42], scale: 1.55, rotY: 2.9 },
+        ];
+
+        // Place ceramic pots & soil
         if (potMesh && dirtMesh) {
-          const pottedUnit = new THREE.Group();
-          const pClone = (potMesh as THREE.Mesh).clone();
-          const dClone = (dirtMesh as THREE.Mesh).clone();
-          const lClone = srcLeaves.clone();
-          pClone.castShadow = true;
-          pClone.receiveShadow = true;
-          pottedUnit.add(pClone, dClone, lClone);
-
-          const potPlacements: { pos: [number, number, number]; scale: number; rotY: number }[] = [
-            { pos: [2.85, 0.18, -1.65], scale: 1.45, rotY: 1.8 },
-            { pos: [3.45, 0.39, -1.42], scale: 1.55, rotY: 2.9 },
-          ];
+          const srcPot = potMesh as THREE.Mesh;
+          const srcDirt = dirtMesh as THREE.Mesh;
           potPlacements.forEach(({ pos, scale, rotY }) => {
-            const inst = pottedUnit.clone(true);
-            inst.position.set(...pos);
-            inst.scale.setScalar(scale);
-            inst.rotation.y = rotY;
-            botanicalGroup.add(inst);
+            const pClone = srcPot.clone();
+            const dClone = srcDirt.clone();
+            pClone.position.set(...pos);
+            pClone.scale.setScalar(scale);
+            pClone.rotation.y = rotY;
+            pClone.castShadow = true;
+            pClone.receiveShadow = true;
+
+            dClone.position.set(...pos);
+            dClone.scale.setScalar(scale);
+            dClone.rotation.y = rotY;
+            botanicalGroup.add(pClone, dClone);
           });
         }
 
-        // Populate architectural planter beds on the right & upper terrace with layered organic botanical clusters
-        const bushPlacements: { pos: [number, number, number]; scale: [number, number, number]; rotY: number }[] = [
+        // Combine all 8 high-poly botanical leaf placements into 1 single InstancedMesh draw call
+        const allLeafTransforms: { pos: [number, number, number]; scale: [number, number, number]; rotY: number }[] = [
+          ...potPlacements.map((p) => ({
+            pos: p.pos,
+            scale: [p.scale, p.scale, p.scale] as [number, number, number],
+            rotY: p.rotY,
+          })),
           { pos: [3.85, 0.02, -1.45], scale: [1.9, 1.75, 1.9], rotY: 0.2 },
           { pos: [4.45, 0.05, -1.38], scale: [2.2, 2.1, 2.2], rotY: 1.4 },
           { pos: [5.05, 0.02, -1.46], scale: [1.85, 1.7, 1.85], rotY: 2.5 },
@@ -549,13 +584,26 @@ export function createNeighbourhoodScene(
           { pos: [4.3, 3.65, 0.55], scale: [1.5, 1.35, 1.5], rotY: 3.8 },
         ];
 
-        bushPlacements.forEach(({ pos, scale, rotY }) => {
-          const foliageCluster = srcLeaves.clone();
-          foliageCluster.position.set(...pos);
-          foliageCluster.scale.set(...scale);
-          foliageCluster.rotation.y = rotY;
-          botanicalGroup.add(foliageCluster);
+        const leavesInstanced = new THREE.InstancedMesh(
+          srcLeaves.geometry,
+          fastLeafMat,
+          allLeafTransforms.length
+        );
+        leavesInstanced.castShadow = true;
+        leavesInstanced.receiveShadow = true;
+
+        allLeafTransforms.forEach(({ pos, scale, rotY }, idx) => {
+          _dummy.position.set(...pos);
+          _dummy.rotation.set(0, rotY, 0);
+          _dummy.scale.set(...scale);
+          _dummy.updateMatrix();
+          leavesInstanced.setMatrixAt(idx, _dummy.matrix);
         });
+        leavesInstanced.instanceMatrix.needsUpdate = true;
+        leavesInstanced.computeBoundingSphere();
+        botanicalGroup.add(leavesInstanced);
+
+        onSceneAssetsUpdated?.();
       }
     },
     undefined,
@@ -600,6 +648,90 @@ export function createNeighbourhoodScene(
   });
   materials.push(evPlateMat);
 
+  // Shared optimized materials for vehicle sub-components so the GPU batches shaders cleanly
+  const sharedCarPaint1Mat = new THREE.MeshPhysicalMaterial({
+    color: 0xb8c4be,
+    metalness: 0.85,
+    roughness: 0.15,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.03,
+    envMapIntensity: 1.75,
+  });
+  const sharedCarPaint2Mat = new THREE.MeshPhysicalMaterial({
+    color: 0x1b211f,
+    metalness: 0.7,
+    roughness: 0.24,
+    clearcoat: 0.75,
+    clearcoatRoughness: 0.1,
+    envMapIntensity: 1.4,
+  });
+  const sharedCarGlassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0d1612,
+    metalness: 0.15,
+    roughness: 0.04,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.02,
+    transparent: true,
+    opacity: 0.84,
+    envMapIntensity: 2.2,
+  });
+  const sharedRimSpokeMat = new THREE.MeshStandardMaterial({
+    color: 0xd8e0dd,
+    metalness: 0.92,
+    roughness: 0.18,
+    envMapIntensity: 1.7,
+  });
+  const sharedRimBarrelMat = new THREE.MeshStandardMaterial({
+    color: 0x222826,
+    metalness: 0.85,
+    roughness: 0.3,
+  });
+  const sharedBrakeCaliperMat = new THREE.MeshStandardMaterial({
+    color: 0xc4df58,
+    metalness: 0.65,
+    roughness: 0.28,
+  });
+  const sharedBrakeDiscMat = new THREE.MeshStandardMaterial({
+    color: 0x9da6a2,
+    metalness: 0.9,
+    roughness: 0.24,
+  });
+  const sharedHeadlightMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xf2f7ff,
+    emissiveIntensity: 2.4,
+    roughness: 0.15,
+  });
+  const sharedBrakelightMat = new THREE.MeshStandardMaterial({
+    color: 0x3a0808,
+    emissive: 0xd92626,
+    emissiveIntensity: 1.8,
+    roughness: 0.2,
+  });
+  const sharedInteriorDarkMat = new THREE.MeshStandardMaterial({
+    color: 0x161a18,
+    roughness: 0.58,
+    metalness: 0.05,
+  });
+  const sharedInteriorSaddleMat = new THREE.MeshStandardMaterial({
+    color: 0x261f1a,
+    roughness: 0.58,
+    metalness: 0.05,
+  });
+  materials.push(
+    sharedCarPaint1Mat,
+    sharedCarPaint2Mat,
+    sharedCarGlassMat,
+    sharedRimSpokeMat,
+    sharedRimBarrelMat,
+    sharedBrakeCaliperMat,
+    sharedBrakeDiscMat,
+    sharedHeadlightMat,
+    sharedBrakelightMat,
+    sharedInteriorDarkMat,
+    sharedInteriorSaddleMat
+  );
+
   // Load the 97-mesh Khronos CarConcept GLB
   gltfLoader.load(
     '/models/CarConcept.glb',
@@ -618,114 +750,64 @@ export function createNeighbourhoodScene(
 
         if ((child as THREE.Mesh).isMesh) {
           const mesh = child as THREE.Mesh;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          clickableMeshes.push(mesh);
-
           const mat = mesh.material as THREE.MeshPhysicalMaterial;
           if (!mat) return;
 
+          // Ensure zero transmission passes are triggered by any imported GLTF material
+          if ('transmission' in mat) {
+            mat.transmission = 0;
+          }
+
           const matName = mat.name || '';
+          const isInterior = matName.startsWith('Interior') || child.name.startsWith('Interior');
+
+          // Only exterior meshes cast shadows into the static shadow map; interior parts skip shadow casting
+          mesh.castShadow = !isInterior;
+          mesh.receiveShadow = false;
+
+          if (!isInterior) {
+            clickableMeshes.push(mesh);
+          }
 
           if (matName.startsWith('Paint 1')) {
-            // Mirror-smooth Liquid Titanium-Silver Automotive Clearcoat Paint
-            // Remove the coarse sample normalMap so body panels have studio-grade specular reflections
-            mat.normalMap = null;
-            mat.color.setHex(0xb8c4be);
-            mat.metalness = 0.85;
-            mat.roughness = 0.15;
-            if ('clearcoat' in mat) {
-              mat.clearcoat = 1.0;
-              mat.clearcoatRoughness = 0.03;
-            }
-            mat.envMapIntensity = 1.75;
-            mat.needsUpdate = true;
+            mesh.material = sharedCarPaint1Mat;
           } else if (matName.startsWith('Paint 2') || matName.startsWith('Panel')) {
-            // Satin Dark Anthracite Aero Trim & Rocker Panels
-            mat.normalMap = null;
-            mat.color.setHex(0x1b211f);
-            mat.metalness = 0.7;
-            mat.roughness = 0.24;
-            if ('clearcoat' in mat) {
-              mat.clearcoat = 0.75;
-              mat.clearcoatRoughness = 0.1;
-            }
-            mat.envMapIntensity = 1.4;
-            mat.needsUpdate = true;
+            mesh.material = sharedCarPaint2Mat;
           } else if (matName.startsWith('Interior')) {
-            // Replace bright red sample racing seats with luxury dark espresso / saddle leather
-            mat.color.setHex(matName.includes('3') ? 0x261f1a : 0x161a18);
-            mat.roughness = 0.58;
-            mat.metalness = 0.05;
-            mat.needsUpdate = true;
+            mesh.material = matName.includes('3') ? sharedInteriorSaddleMat : sharedInteriorDarkMat;
           } else if (matName === 'Glass') {
-            // Acoustic Tinted Automotive Laminated Glass
-            if ('transmission' in mat) {
-              mat.transmission = 0;
-            }
-            mat.color.setHex(0x0d1612);
-            mat.metalness = 0.15;
-            mat.roughness = 0.04;
-            if ('clearcoat' in mat) {
-              mat.clearcoat = 1.0;
-              mat.clearcoatRoughness = 0.02;
-            }
-            mat.transparent = true;
-            mat.opacity = 0.84;
-            mat.envMapIntensity = 2.2;
-            mat.needsUpdate = true;
+            mesh.material = sharedCarGlassMat;
           } else if (matName === 'Rim2') {
-            // Forged Machined Brushed Aluminum Wheel Spokes
-            mat.emissiveMap = null;
-            mat.emissive.setHex(0x000000);
-            mat.color.setHex(0xd8e0dd);
-            mat.metalness = 0.92;
-            mat.roughness = 0.18;
-            mat.envMapIntensity = 1.7;
-            mat.needsUpdate = true;
+            mesh.material = sharedRimSpokeMat;
           } else if (matName === 'Rim1') {
-            // Dark Gunmetal Inner Wheel Barrel
-            mat.emissiveMap = null;
-            mat.emissive.setHex(0x000000);
-            mat.color.setHex(0x222826);
-            mat.metalness = 0.85;
-            mat.roughness = 0.3;
-            mat.needsUpdate = true;
+            mesh.material = sharedRimBarrelMat;
           } else if (matName === 'Brake') {
-            // Performance Anodized Warm-Lime Calipers
-            mat.color.setHex(0xc4df58);
-            mat.metalness = 0.65;
-            mat.roughness = 0.28;
-            mat.needsUpdate = true;
+            mesh.material = sharedBrakeCaliperMat;
           } else if (matName === 'Disc') {
-            // Ventilated Steel Brake Rotors
-            mat.color.setHex(0x9da6a2);
-            mat.metalness = 0.9;
-            mat.roughness = 0.24;
-            mat.needsUpdate = true;
+            mesh.material = sharedBrakeDiscMat;
           } else if (matName === 'Tireside' || matName === 'Tiretread') {
-            // Satin Vulcanized Rubber Tires (preserving molded sidewall & tread normal maps)
-            mat.color.setHex(0x171a19);
-            mat.roughness = 0.68;
-            mat.metalness = 0.06;
-            mat.needsUpdate = true;
+            // Satin Vulcanized Rubber Tires (preserving molded sidewall & tread normal maps on MeshStandardMaterial)
+            const tireMat = new THREE.MeshStandardMaterial({
+              color: 0x171a19,
+              normalMap: mat.normalMap || null,
+              roughness: 0.68,
+              metalness: 0.06,
+            });
+            materials.push(tireMat);
+            mesh.material = tireMat;
           } else if (matName === 'License' || mesh.name === 'License Plate') {
-            // Replace sample Khronos plate with Indian EV Green HSRP Plate
             mesh.material = evPlateMat;
           } else if (matName === 'Headlight') {
-            mat.emissive.setHex(0xf2f7ff);
-            mat.emissiveIntensity = 2.4;
-            mat.needsUpdate = true;
+            mesh.material = sharedHeadlightMat;
           } else if (matName === 'Brakelight') {
-            mat.emissive.setHex(0xd92626);
-            mat.emissiveIntensity = 1.8;
-            mat.needsUpdate = true;
+            mesh.material = sharedBrakelightMat;
           }
         }
       });
 
       evGroup.add(carModel);
       onVehicleLoaded?.();
+      onSceneAssetsUpdated?.();
     },
     undefined,
     () => {

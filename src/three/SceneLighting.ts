@@ -121,20 +121,34 @@ export function setupSceneLighting(
   scene.environmentIntensity = 1.15;
   pmremGenerator.dispose();
 
+  // Dispose temporary envScene geometries and materials immediately after baking PMREM cubemap
+  envScene.traverse((obj) => {
+    if ((obj as THREE.Mesh).isMesh) {
+      const m = obj as THREE.Mesh;
+      m.geometry?.dispose();
+      if (Array.isArray(m.material)) {
+        m.material.forEach((mat) => mat.dispose());
+      } else {
+        m.material?.dispose();
+      }
+    }
+  });
+
   // 1. Primary Dusk / Architectural Key Light (Directional)
+  // Uses static shadow map updates (autoUpdate = false) since all shadow-casting objects are stationary
   const keyLight = new THREE.DirectionalLight(0xfff4e6, 2.35);
   keyLight.position.set(8, 15, 11);
   keyLight.castShadow = !isSoftwareGl;
   if (!isSoftwareGl) {
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    const d = 10;
+    keyLight.shadow.mapSize.width = 1536;
+    keyLight.shadow.mapSize.height = 1536;
+    const d = 7.5;
     keyLight.shadow.camera.left = -d;
     keyLight.shadow.camera.right = d;
     keyLight.shadow.camera.top = d;
     keyLight.shadow.camera.bottom = -d;
-    keyLight.shadow.camera.near = 1;
-    keyLight.shadow.camera.far = 42;
+    keyLight.shadow.camera.near = 2;
+    keyLight.shadow.camera.far = 32;
     keyLight.shadow.bias = -0.0003;
     keyLight.shadow.normalBias = 0.015;
   }

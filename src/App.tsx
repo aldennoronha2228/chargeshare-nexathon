@@ -45,9 +45,11 @@ export default function App() {
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [infoModalTopic, setInfoModalTopic] = useState<'support' | 'terms' | null>(null);
 
-  // Sync activeChapter with scroll position across the 5 narrative sections
+  // Sync activeChapter with scroll position across the 5 narrative sections (RAF-throttled)
   useEffect(() => {
-    const handleScroll = () => {
+    let ticking = false;
+    const evaluateScrollChapter = () => {
+      ticking = false;
       const viewportTriggerY = window.innerHeight * 0.45;
       let detectedChapter: StoryChapterId = 'discover';
 
@@ -66,8 +68,15 @@ export default function App() {
       );
     };
 
+    const handleScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(evaluateScrollChapter);
+      }
+    };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
+    evaluateScrollChapter();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 

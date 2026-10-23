@@ -31,7 +31,7 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
     >
       <div className="max-w-[1360px] mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
         {/* Left 5 Columns: Editorial Narrative directly on 3D Background with mobile scrim */}
-        <div className="md:col-span-5 py-4 px-4 sm:px-0 sm:py-2 bg-[#0A1B14]/85 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 text-[#F6F3E9] space-y-5 pointer-events-auto shadow-2xl sm:shadow-none">
+        <div className="md:col-span-5 py-4 px-4 sm:px-0 sm:py-2 bg-[#0A1B14]/92 sm:bg-transparent rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 text-[#F6F3E9] space-y-5 pointer-events-auto shadow-2xl sm:shadow-none">
           <h2
             id="chapter-connect-heading"
             className="font-display font-bold text-white tracking-tight leading-[1.06] text-balance"
@@ -162,7 +162,7 @@ export const ChapterBookAndChargeSection: React.FC<ChapterBookAndChargeSectionPr
     >
       <div className="max-w-[1360px] mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
         {/* Left 5 Columns: 3-Step Interactive Sequence directly over the dark 3D atmosphere with mobile scrim */}
-        <div className="md:col-span-5 text-[#F6F3E9] py-4 px-4 sm:px-0 sm:py-1 bg-[#0A1B14]/85 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 space-y-4 pointer-events-auto shadow-2xl sm:shadow-none">
+        <div className="md:col-span-5 text-[#F6F3E9] py-4 px-4 sm:px-0 sm:py-1 bg-[#0A1B14]/92 sm:bg-transparent rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 space-y-4 pointer-events-auto shadow-2xl sm:shadow-none">
           <div className="space-y-2">
             <h2
               id="chapter-book-heading"
