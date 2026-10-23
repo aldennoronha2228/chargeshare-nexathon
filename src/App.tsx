@@ -38,6 +38,8 @@ import { ChargerDetailDrawer } from './components/ChargerDetailDrawer';
 import type { ProfileMenuView } from './components/ProfileMenu';
 import { subscribeToPublicChargers, toClientListing } from './utils/providerChargers';
 import { subscribeToPublicReviews, type Review } from './utils/reviews';
+import { syncUserProfile } from './utils/userProfile';
+import { ClientAccountPage, type ClientAccountSection } from './components/ClientAccountPage';
 
 const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
   discover: 'chapter-discover',
@@ -129,6 +131,11 @@ export default function App() {
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthResolved(true);
+      if (nextUser) {
+        void syncUserProfile(nextUser).catch((error) => {
+          console.error('Could not sync user profile:', error);
+        });
+      }
     });
   }, []);
 
@@ -174,10 +181,19 @@ export default function App() {
     replaceTo(loginDestination);
   }, [route, authResolved, effectiveUser, loginDestination]);
 
-  // /find-chargers is protected: send signed-out visitors to login and remember it
+  // Client routes are protected: send signed-out visitors to login and remember the destination.
   useEffect(() => {
-    if (route !== 'findChargers' || !authResolved || effectiveUser) return;
-    replaceTo(buildLoginPath(ROUTES.findChargers));
+    const destination = route === 'findChargers'
+      ? ROUTES.findChargers
+      : route === 'clientBookings'
+        ? ROUTES.clientBookings
+        : route === 'clientActivity'
+          ? ROUTES.clientActivity
+          : route === 'clientProfile'
+            ? ROUTES.clientProfile
+            : null;
+    if (!destination || !authResolved || effectiveUser) return;
+    replaceTo(buildLoginPath(destination));
   }, [route, authResolved, effectiveUser]);
 
   // Drop user-specific session state as soon as the account signs out
@@ -261,6 +277,13 @@ export default function App() {
     navigateTo(effectiveUser ? ROUTES.findChargers : buildLoginPath(ROUTES.findChargers));
   }, [effectiveUser]);
 
+  const clientChargers = useMemo(
+    () => effectiveUser
+      ? chargersWithReviews.filter((charger) => charger.providerId !== effectiveUser.uid)
+      : chargersWithReviews,
+    [chargersWithReviews, effectiveUser?.uid],
+  );
+
   const scrollToBook = () => {
     setActiveChapter('book');
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
@@ -285,6 +308,14 @@ export default function App() {
     setEditProfileOpen(true);
   }, []);
 
+  const openClientProfile = useCallback((view: ProfileMenuView) => {
+    if (view === 'view') {
+      navigateTo(ROUTES.clientProfile);
+      return;
+    }
+    openProfile('edit');
+  }, [openProfile]);
+
   // Provider portal — requires a real Firebase session
   if (route === 'provider') {
     if (!authResolved) return <SessionLoading label="Checking your session…" />;
@@ -303,12 +334,19 @@ export default function App() {
   }
 
   // Charger discovery — protected route
-  if (route === 'findChargers') {
+  if (route === 'findChargers' || route === 'clientBookings' || route === 'clientActivity' || route === 'clientProfile') {
     if (!authResolved) return <SessionLoading label="Checking your session…" />;
     if (!effectiveUser) return <SessionLoading label="Redirecting to sign in…" />;
   }
 
   const isFindChargersRoute = route === 'findChargers';
+  const clientAccountSection: ClientAccountSection | null = route === 'clientBookings'
+    ? 'bookings'
+    : route === 'clientActivity'
+      ? 'activity'
+      : route === 'clientProfile'
+        ? 'profile'
+        : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#173D2C] text-[#22251F]">
@@ -317,7 +355,7 @@ export default function App() {
         page brings its own compact app nav + mobile bottom nav, so rendering both
         would duplicate navigation.
       */}
-      {!isFindChargersRoute && (
+      {!isFindChargersRoute && !clientAccountSection && (
         <Navbar
           user={effectiveUser}
           onExploreChargers={goToFindChargers}
@@ -332,14 +370,23 @@ export default function App() {
       <main className="flex-1 relative">
         {isFindChargersRoute ? (
           <FindChargersPage
-            chargers={chargersWithReviews}
+            chargers={clientChargers}
             chargersLoading={chargersLoading}
             chargersError={chargersError}
             user={effectiveUser}
             onOpenDetail={(charger) => setDetailCharger(charger)}
-            onOpenProfile={openProfile}
-            onOpenBookings={() => setSignInModalOpen(true)}
+            onOpenProfile={openClientProfile}
+            onOpenBookings={() => navigateTo(ROUTES.clientBookings)}
+            onOpenActivity={() => navigateTo(ROUTES.clientActivity)}
             activeReservationCount={activeReservationCount}
+          />
+        ) : clientAccountSection && effectiveUser ? (
+          <ClientAccountPage
+            section={clientAccountSection}
+            user={effectiveUser}
+            bookings={driverBookings}
+            onCancelBooking={handleCancelBooking}
+            onEditProfile={() => openProfile('edit')}
           />
         ) : (
           <>

@@ -12,7 +12,7 @@
 }
 
 .find-chargers-topbar__inner {
-  width: min(calc(100% - 32px), 1320px);
+  width: min(calc(100% - 24px), 1320px);
   padding: 10px 0 !important;
 }
 
@@ -320,4 +320,61 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Keep MapLibre's controls and charger popups in the app's dark visual theme. */
+.cs-map-root .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid #414741;
+  border-radius: 10px;
+  background: #171917;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
+}
+
+.cs-map-root .maplibregl-ctrl-group button {
+  background-color: #171917;
+}
+
+.cs-map-root .maplibregl-ctrl-group button:hover {
+  background-color: #292d29;
+}
+
+.cs-map-root .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.cs-map-root .maplibregl-ctrl-attrib {
+  border: 1px solid #414741;
+  border-radius: 6px 0 0;
+  background: #171917 !important;
+  color: #b2b7b0;
+}
+
+.cs-map-root .maplibregl-ctrl-attrib a {
+  color: #d8f36a;
+}
+
+.cs-maplibre-popup .maplibregl-popup-content {
+  padding: 13px;
+  border: 1px solid #414741;
+  border-radius: 12px;
+  background: #171917;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+.cs-maplibre-popup .maplibregl-popup-close-button {
+  top: 5px;
+  right: 6px;
+  color: #b2b7b0;
+  font-size: 18px;
+}
+
+.cs-maplibre-popup .maplibregl-popup-close-button:hover {
+  color: #fff;
+  background: transparent;
+}
+
+.cs-maplibre-popup .maplibregl-popup-tip {
+  border-top-color: #171917;
+  border-bottom-color: #171917;
 }

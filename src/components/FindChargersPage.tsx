@@ -32,8 +32,7 @@ import {
   ChevronRight,
   Compass,
   Heart,
-  List,
-  Map as MapIcon,
+  House,
   Navigation,
   RotateCcw,
   Search,
@@ -56,6 +55,7 @@ import { ROUTES, navigateTo } from '../utils/appRoute';
 import { ChargerThumbPlate } from './EditorialIllustrations';
 import { ChargerMap } from './ChargerMap';
 import { ProfileMenu, type ProfileMenuView } from './ProfileMenu';
+import { LocationSelectionModal, type SelectedLocation } from './LocationSelectionModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -583,8 +583,10 @@ interface FindChargersPageProps {
   user: FirebaseUser | null;
   onOpenDetail: (charger: ChargerListing) => void;
   onOpenProfile: (view: ProfileMenuView) => void;
-  /** Opens the existing bookings list (SignInAndBookingsModal). */
+  /** Navigates to the dedicated bookings page. */
   onOpenBookings: () => void;
+  /** Navigates to the dedicated activity page. */
+  onOpenActivity: () => void;
   activeReservationCount: number;
 }
 
@@ -596,6 +598,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   onOpenDetail,
   onOpenProfile,
   onOpenBookings,
+  onOpenActivity,
   activeReservationCount,
 }) => {
   const [filters, setFilters] = useState<ChargerFilterCriteria>(DEFAULT_FILTERS);
@@ -606,8 +609,12 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const [showAll, setShowAll] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(true);
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
+  const [focusLocation, setFocusLocation] = useState<{ lat: number; lng: number; zoom: number }>();
 
   const notifRef = useRef<HTMLDivElement>(null);
+  const mapSectionRef = useRef<HTMLElement>(null);
 
   const { favouriteIds, toggleFavourite } = useFavourites(user?.uid ?? null);
 
@@ -650,9 +657,9 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   );
 
   const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
+    setFilters({ ...DEFAULT_FILTERS, searchQuery: selectedLocation?.area ?? '' });
     setSortBy('distance');
-  }, []);
+  }, [selectedLocation]);
 
   const isDefaultFilters = useMemo(
     () =>
@@ -679,11 +686,29 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   }, [notifOpen]);
 
   const locationLabel = useMemo(() => {
+    if (selectedLocation) return [selectedLocation.area, selectedLocation.city, selectedLocation.state, selectedLocation.country].filter(Boolean).join(', ');
     if (filters.city !== 'All Cities') return filters.city;
     const query = filters.searchQuery.trim();
     if (query) return query;
     return 'All of India';
-  }, [filters.city, filters.searchQuery]);
+  }, [filters.city, filters.searchQuery, selectedLocation]);
+
+  const handleLocationSubmit = useCallback(async (location: SelectedLocation) => {
+    setSelectedLocation(location);
+    // The chooser resolves an area/neighbourhood point, so bring it into a
+    // street-level view instead of leaving the map at a broad city zoom.
+    setFocusLocation({
+      lat: location.latitude,
+      lng: location.longitude,
+      zoom: location.area.trim() ? 15.5 : 13.5,
+    });
+    setSelectedId(null);
+    setFilters((previous) => ({ ...previous, searchQuery: location.area.trim() || location.city }));
+    setSortBy('distance');
+    setView('map');
+    setLocationDialogOpen(false);
+    window.setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  }, []);
 
   const handleSelect = useCallback((charger: ChargerListing) => {
     setSelectedId(charger.id);
@@ -739,18 +764,28 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
     <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-24 md:pb-12">
       {/* ── Compact top navigation ─────────────────────────────────────────── */}
       <header className="find-chargers-topbar sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
-        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:gap-x-3 sm:px-6 md:flex-nowrap">
+        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] flex-nowrap items-center gap-x-1.5 px-2 py-2 sm:gap-x-3 sm:px-6">
           <button
             type="button"
             onClick={goHome}
             aria-label="ChargeShare home"
             className="find-chargers-brand inline-flex shrink-0 items-center rounded px-1 py-1.5 text-white transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            <span className="font-display text-[13px] font-bold tracking-[0.16em]">CHARGESHARE</span>
+            <span className="whitespace-nowrap font-display text-[12px] font-bold tracking-[0.1em] max-[360px]:text-[10px] sm:text-[13px] sm:tracking-[0.16em]">CHARGESHARE</span>
           </button>
-          <span className="find-chargers-mode shrink-0 rounded border border-white/15 bg-white/10 px-2 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-widest text-white/85">
+          <span className="find-chargers-mode shrink-0 rounded border border-white/15 bg-white/10 px-1.5 py-1 font-label-caps text-[8px] font-semibold uppercase tracking-wider text-white/85 sm:px-2 sm:text-[9px] sm:tracking-widest">
             Client
           </span>
+          <button
+            type="button"
+            onClick={goHome}
+            aria-label="Home"
+            title="Home"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/15 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white max-[360px]:h-8 max-[360px]:w-8 max-[360px]:justify-center max-[360px]:p-0 sm:gap-1.5 sm:px-3 sm:py-2 sm:text-[10px]"
+          >
+            <House className="h-3.5 w-3.5 shrink-0" />
+            <span className="max-[360px]:hidden">Home</span>
+          </button>
 
           <div className="hidden md:block md:flex-1">
             <nav aria-label="Client navigation" className="mx-auto flex w-max items-center gap-1 rounded-full border border-white/10 bg-[#1C1C1C] p-1 md:mx-auto">
@@ -765,7 +800,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
               </button>
               <button
                 type="button"
-                onClick={onOpenBookings}
+                onClick={onOpenActivity}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
               >
                 <CalendarCheck className="h-3.5 w-3.5" />
@@ -799,7 +834,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
               aria-haspopup="true"
               aria-expanded={notifOpen}
               aria-label={hasUnread ? `Notifications, ${activeReservationCount} unread` : 'Notifications'}
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D8D5CA] bg-white text-[#22251F] transition-colors hover:border-[#173D2C] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+              className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D8D5CA] bg-white text-[#22251F] transition-colors hover:border-[#173D2C] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C] sm:h-9 sm:w-9"
             >
               <Bell className="h-4 w-4" />
               {hasUnread && (
@@ -844,6 +879,8 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         </div>
       </header>
 
+      {locationDialogOpen && <LocationSelectionModal onSubmit={handleLocationSubmit} />}
+
       {/* ── Location search + filter chips ─────────────────────────────────── */}
       <section className="find-chargers-hero mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Search and filters">
         <div className="find-chargers-hero__heading flex items-start justify-between gap-3">
@@ -854,27 +891,11 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-wider text-white"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />Live grid</span>
         </div>
         <div className="find-chargers-search-row mt-4 flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888]" />
-            <input
-              type="search"
-              value={filters.searchQuery}
-              onChange={(e) => patch('searchQuery', e.target.value)}
-              placeholder="Search street, host or plug type..."
-              aria-label="Search area, address or locality"
-              className="h-12 w-full rounded-2xl border border-[#D8D5CA] bg-white pl-10 pr-10 text-sm text-[#22251F] placeholder:text-[#AAA] focus:border-[#173D2C] focus:outline-none"
-            />
-            {filters.searchQuery && (
-              <button
-                type="button"
-                onClick={() => patch('searchQuery', '')}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#888] hover:text-[#22251F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <button type="button" onClick={() => setLocationDialogOpen(true)} className="inline-flex h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-[#D8D5CA] bg-white px-4 text-left text-sm text-[#22251F] hover:border-[#173D2C]">
+            <Navigation className="h-4 w-4 shrink-0 text-[#173D2C]" />
+            <span className="min-w-0 flex-1 truncate">{locationLabel}</span>
+            <span className="shrink-0 text-xs font-semibold text-[#173D2C]">Change area</span>
+          </button>
 
           <button
             type="button"
@@ -1096,40 +1117,17 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
       <div className="find-chargers-desktop-layout">
       {/* ── Map ─────────────────────────────────────────────────────────────── */}
-      <section className="find-chargers-map-section mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
+      <section ref={mapSectionRef} className="find-chargers-map-section mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
         <div className="find-chargers-map-heading mb-0 flex items-center justify-between gap-2 rounded-t-xl border border-[#E5E2E1] bg-white px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="font-label-caps text-[10px] font-semibold uppercase tracking-wider text-black">Grid view</span>
             <span className="truncate text-[11px] text-[#5E5F5C]">{locationLabel}{selectedId ? ' · 1 selected' : ''}</span>
           </div>
-          <div className="flex shrink-0 overflow-hidden rounded-full border border-[#D8D5CA]">
-            <button
-              type="button"
-              onClick={() => setView('list')}
-              aria-pressed={view === 'list'}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
-                view === 'list' ? 'bg-[#173D2C] text-[#D8F36A]' : 'bg-white text-[#565A52] hover:bg-[#EDE8D8]'
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-              List
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('map')}
-              aria-pressed={view === 'map'}
-              className={`inline-flex items-center gap-1.5 border-l border-[#D8D5CA] px-3 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
-                view === 'map' ? 'bg-[#173D2C] text-[#D8F36A]' : 'bg-white text-[#565A52] hover:bg-[#EDE8D8]'
-              }`}
-            >
-              <MapIcon className="h-3.5 w-3.5" />
-              Map
-            </button>
-          </div>
         </div>
 
         <ChargerMap
           chargers={results}
+          focusLocation={focusLocation}
           onUserLocation={setUserLocation}
           selectedChargerId={selectedId}
           onSelectCharger={handleSelect}
@@ -1245,7 +1243,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <CalendarCheck className="h-5 w-5" />
           <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Bookings</span>
         </button>
-        <button type="button" onClick={onOpenBookings} title="Recent booking activity" className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+        <button type="button" onClick={onOpenActivity} title="Recent booking activity" className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
           <Activity className="h-5 w-5" />
           <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Activity</span>
         </button>

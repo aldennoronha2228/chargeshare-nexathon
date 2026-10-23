@@ -3,15 +3,10 @@
  *
  * Map tile provider: OpenFreeMap (https://openfreemap.org)
  *   • No API key required
- *   • Uses the "liberty" style — clean, readable, OSM-based
+ *   • Uses the "liberty" style for a clear, light map
  *   • Style URL: https://tiles.openfreemap.org/styles/liberty
  *   • Attribution: © OpenFreeMap contributors, © OpenStreetMap contributors
  *   • Usage limits: free for reasonable use; see openfreemap.org/terms
- *
- *   If VITE_MAP_TILES_API_KEY is set in .env, the component switches to
- *   MapTiler's streets-v2 style which offers higher tile quality.
- *   MapTiler free plan: 100 k tile requests/month — suitable for demo.
- *   Style URL: https://api.maptiler.com/maps/streets-v2/style.json?key=YOUR_KEY
  *
  * Architecture:
  *   - Map instance is created once in useEffect([]) and stored in a ref
@@ -21,14 +16,8 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import {
-  AttributionControl,
-  LngLatBounds,
-  Map as MapLibreMap,
-  Marker,
-  NavigationControl,
-  Popup,
-} from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   AlertCircle,
@@ -42,9 +31,11 @@ import {
 } from 'lucide-react';
 import type { ChargerListing } from '../data/demoChargers';
 import { chargerLatLng, centreOf } from '../utils/geoUtils';
-import { resolveMapStyle } from '../utils/mapStyle';
 
-// ─── Map style ────────────────────────────────────────────────────────────────
+// OpenFreeMap's Vite quick start requires an explicitly bundled MapLibre worker.
+maplibregl.setWorkerUrl(mapLibreWorkerUrl);
+
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 // ─── SVG marker factory ───────────────────────────────────────────────────────
 
@@ -54,36 +45,28 @@ import { resolveMapStyle } from '../utils/mapStyle';
  * the current selection stands out on a busy map.
  */
 function markerVisual(charger: ChargerListing, selected: boolean): { cssText: string; html: string } {
-  const available = charger.availableNow;
-  const hasPrice = Number.isFinite(charger.pricePerKwh) && charger.pricePerKwh > 0;
-
-  const background = selected ? '#111111' : '#FFFFFF';
-  const foreground = selected ? '#FFFFFF' : available ? '#1C1B1B' : '#747878';
-  const border = selected ? '2px solid #FFFFFF' : '1px solid #C4C7C7';
+  const background = selected ? '#D8F36A' : '#151715';
+  const foreground = selected ? '#151715' : charger.availableNow ? '#D8F36A' : '#A4AAA3';
+  const border = selected ? '2px solid #F2FFB2' : '2px solid #516257';
 
   const cssText = `
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: ${selected ? '6px 11px' : '5px 9px'};
-    border-radius: 999px;
+    justify-content: center;
+    width: ${selected ? '38px' : '34px'};
+    height: ${selected ? '38px' : '34px'};
+    padding: 0;
+    border-radius: 50%;
     background: ${background};
     color: ${foreground};
     border: ${border};
-    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-weight: 800;
-    font-size: ${selected ? '13px' : '11px'};
-    line-height: 1;
-    white-space: nowrap;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.5);
     cursor: pointer;
-    transition: background 150ms, transform 150ms;
-    transform: scale(${selected ? 1.06 : 1});
+    transition: background 150ms, border-color 150ms, transform 150ms;
+    transform: scale(${selected ? 1.12 : 1});
   `;
 
-  const html = hasPrice
-    ? `${selected && available ? '<span style="width:6px;height:6px;border-radius:50%;background:#22a06b;display:inline-block"></span>' : ''}₹${charger.pricePerKwh}`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="${selected ? 15 : 13}" height="${selected ? 15 : 13}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+  const html = `<svg xmlns="http://www.w3.org/2000/svg" width="${selected ? 21 : 19}" height="${selected ? 21 : 19}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
 
   return { cssText, html };
 }
@@ -113,39 +96,39 @@ function escapeHtml(value: string): string {
 
 function buildPopupHTML(charger: ChargerListing): string {
   const avail = charger.availableNow
-    ? `<span style="background:#D8F36A;color:#173D2C;font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">● Active</span>`
-    : `<span style="background:#EDE8D8;color:#565A52;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">○ Paused</span>`;
+    ? `<span style="background:#263b2b;color:#d8f36a;font-weight:700;font-size:10px;padding:3px 7px;border-radius:999px;text-transform:uppercase;">● Available</span>`
+    : `<span style="background:#292c29;color:#c1c5bf;font-size:10px;padding:3px 7px;border-radius:999px;text-transform:uppercase;">○ Paused</span>`;
 
   const rating = charger.rating
-    ? `<span style="font-size:11px;color:#565A52;">★ ${charger.rating.toFixed(1)} (${charger.reviewCount ?? 0})</span>`
+    ? `<span style="font-size:11px;color:#c1c5bf;">★ ${charger.rating.toFixed(1)} (${charger.reviewCount ?? 0})</span>`
     : '';
 
   return `
-    <div style="font-family:'Plus Jakarta Sans',sans-serif;min-width:200px;max-width:240px;">
+    <div style="font-family:'Plus Jakarta Sans',sans-serif;min-width:200px;max-width:240px;color:#f4f4ef;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:6px;">
-        <div style="font-weight:700;font-size:13px;color:#22251F;line-height:1.3;">${escapeHtml(charger.title)}</div>
+        <div style="font-weight:700;font-size:13px;color:#f4f4ef;line-height:1.3;">${escapeHtml(charger.title)}</div>
         ${avail}
       </div>
-      <div style="font-size:11px;color:#565A52;margin-bottom:8px;">${escapeHtml(charger.locality)}, ${escapeHtml(charger.city)}</div>
+      <div style="font-size:11px;color:#b2b7b0;margin-bottom:8px;">${escapeHtml(charger.locality)}, ${escapeHtml(charger.city)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
-        <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Power</div>
-          <div style="font-size:12px;font-weight:700;color:#22251F;font-family:monospace;">${charger.powerKw} kW</div>
+        <div style="background:#242724;border:1px solid #343934;border-radius:7px;padding:5px 6px;text-align:center;">
+          <div style="font-size:10px;color:#a3aaa2;text-transform:uppercase;font-weight:600;">Power</div>
+          <div style="font-size:12px;font-weight:700;color:#f4f4ef;font-family:monospace;">${charger.powerKw} kW</div>
         </div>
-        <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Price</div>
-          <div style="font-size:12px;font-weight:700;color:#173D2C;font-family:monospace;">₹${charger.pricePerKwh}/${charger.pricingType === 'per_session' ? 'session' : 'kWh'}</div>
+        <div style="background:#242724;border:1px solid #343934;border-radius:7px;padding:5px 6px;text-align:center;">
+          <div style="font-size:10px;color:#a3aaa2;text-transform:uppercase;font-weight:600;">Price</div>
+          <div style="font-size:12px;font-weight:700;color:#d8f36a;font-family:monospace;">₹${charger.pricePerKwh}/${charger.pricingType === 'per_session' ? 'session' : 'kWh'}</div>
         </div>
-        <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Dist</div>
-          <div style="font-size:12px;font-weight:700;color:#22251F;font-family:monospace;">${charger.distanceKm === null ? '—' : `${charger.distanceKm} km`}</div>
+        <div style="background:#242724;border:1px solid #343934;border-radius:7px;padding:5px 6px;text-align:center;">
+          <div style="font-size:10px;color:#a3aaa2;text-transform:uppercase;font-weight:600;">Dist</div>
+          <div style="font-size:12px;font-weight:700;color:#f4f4ef;font-family:monospace;">${charger.distanceKm === null ? '—' : `${charger.distanceKm} km`}</div>
         </div>
       </div>
-      <div style="font-size:11px;color:#173D2C;background:#F6F3E9;border:1px solid #D8D5CA;border-radius:4px;padding:3px 7px;display:inline-block;margin-bottom:8px;">
+      <div style="font-size:11px;color:#d8f36a;background:#242724;border:1px solid #424a42;border-radius:6px;padding:4px 8px;display:inline-block;margin-bottom:8px;">
         ${escapeHtml(charger.connector)}
       </div>
       ${rating ? `<div style="margin-bottom:8px;">${rating}</div>` : ''}
-      <div data-charger-id="${charger.id}" style="width:100%;background:#173D2C;color:#D8F36A;border:none;border-radius:6px;padding:7px 0;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">
+      <div data-charger-id="${escapeHtml(charger.id)}" style="width:100%;background:#d8f36a;color:#151715;border:none;border-radius:7px;padding:8px 0;font-size:12px;font-weight:800;cursor:pointer;text-align:center;">
         View Details →
       </div>
     </div>
@@ -161,6 +144,7 @@ interface ChargerMapProps {
   onSelectCharger: (charger: ChargerListing) => void;
   onViewDetails: (charger: ChargerListing) => void;
   onUserLocation?: (location: { lat: number; lng: number }) => void;
+  focusLocation?: { lat: number; lng: number; zoom: number };
   /** Height class — defaults to h-[420px] on mobile, h-[520px] on desktop */
   className?: string;
 }
@@ -173,13 +157,14 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   onSelectCharger,
   onViewDetails,
   onUserLocation,
+  focusLocation,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef       = useRef<MapLibreMap | null>(null);
+  const mapRef       = useRef<maplibregl.Map | null>(null);
   // Map from charger.id → marker instance
-  const markersRef   = useRef<Map<string, Marker>>(new Map());
-  const popupRef     = useRef<Popup | null>(null);
+  const markersRef   = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const popupRef     = useRef<maplibregl.Popup | null>(null);
   const chargersRef = useRef(chargers);
   const onSelectRef = useRef(onSelectCharger);
   const onViewDetailsRef = useRef(onViewDetails);
@@ -191,18 +176,20 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   const [mapError,  setMapError]  = useState<string | null>(null);
   const [locating,  setLocating]  = useState(false);
   const [locError,  setLocError]  = useState<string | null>(null);
-  const [missingCoordinates, setMissingCoordinates] = useState(0);
+  const [noCoords,  setNoCoords]  = useState(false);
 
   // ── 1. Initialise map once ────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    let map: MapLibreMap;
+    let map: maplibregl.Map;
+    let loaded = false;
+    let loadTimeout: number | undefined;
 
     try {
-      map = new MapLibreMap({
+      map = new maplibregl.Map({
         container: containerRef.current,
-        style: resolveMapStyle(),
+        style: MAP_STYLE,
         center: [78.9629, 20.5937], // India centre — overridden once chargers load
         zoom: 4,
         attributionControl: false,
@@ -213,25 +200,34 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
 
       // Attribution in bottom-right (compact)
       map.addControl(
-        new AttributionControl({ compact: true }),
+        new maplibregl.AttributionControl({ compact: true }),
         'bottom-right',
       );
 
       // Zoom controls
       map.addControl(
-        new NavigationControl({ showCompass: false }),
+        new maplibregl.NavigationControl({ showCompass: false }),
         'top-right',
       );
 
-      map.on('load', () => setMapReady(true));
+      map.on('load', () => {
+        loaded = true;
+        if (loadTimeout !== undefined) window.clearTimeout(loadTimeout);
+        setMapError(null);
+        setMapReady(true);
+      });
 
       map.on('error', (e) => {
         console.error('[ChargerMap] MapLibre error', e);
-        // Only surface tile/style errors, not benign worker errors
-        if (e.error && !String(e.error).includes('Worker')) {
-          setMapError('Map failed to load. Check your internet connection or tile provider configuration.');
+        if (!loaded) {
+          const detail = e.error instanceof Error ? e.error.message : String(e.error ?? 'Unknown map error');
+          setMapError(`Map failed to load: ${detail}`);
         }
       });
+
+      loadTimeout = window.setTimeout(() => {
+        if (!loaded) setMapError('The map did not finish loading. Check your connection and reload the page.');
+      }, 15000);
 
       mapRef.current = map;
     } catch (err) {
@@ -240,6 +236,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     }
 
     return () => {
+      if (loadTimeout !== undefined) window.clearTimeout(loadTimeout);
       // Clean up markers
       markersRef.current.forEach((m) => m.remove());
       markersRef.current.clear();
@@ -258,7 +255,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     popupRef.current?.remove();
 
     const validChargers = chargers.filter((c) => chargerLatLng(c) !== null);
-    setMissingCoordinates(chargers.length - validChargers.length);
+    setNoCoords(chargers.length > 0 && validChargers.length === 0);
 
     // Remove markers that are no longer in the results
     const currentIds = new Set(chargers.map((c) => c.id));
@@ -286,7 +283,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
         // Create new marker
         const el = createMarkerElement(charger, isSelected);
 
-        const marker = new Marker({ element: el, anchor: 'center' })
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
           .setLngLat([pos.lng, pos.lat])
           .addTo(map);
 
@@ -304,21 +301,27 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     });
 
     // Fly to bounds of visible chargers
-    if (validChargers.length > 0) {
+    if (!focusLocation && validChargers.length > 0) {
       if (validChargers.length === 1) {
         const pos = chargerLatLng(validChargers[0])!;
         map.flyTo({ center: [pos.lng, pos.lat], zoom: 14, duration: 800 });
       } else {
         const lngs = validChargers.map((c) => chargerLatLng(c)!.lng);
         const lats = validChargers.map((c) => chargerLatLng(c)!.lat);
-        const bounds = new LngLatBounds(
+        const bounds = new maplibregl.LngLatBounds(
           [Math.min(...lngs), Math.min(...lats)],
           [Math.max(...lngs), Math.max(...lats)],
         );
         map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
       }
     }
-  }, [chargers, selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chargers, selectedChargerId, mapReady, focusLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !focusLocation) return;
+    map.flyTo({ center: [focusLocation.lng, focusLocation.lat], zoom: focusLocation.zoom, duration: 1000 });
+  }, [focusLocation, mapReady]);
 
   // ── 3. Open popup for selected charger ────────────────────────────────────
   useEffect(() => {
@@ -335,13 +338,13 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   }, [chargers, selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openPopup(
-    map: MapLibreMap,
+    map: maplibregl.Map,
     charger: ChargerListing,
     pos: { lat: number; lng: number },
   ) {
     popupRef.current?.remove();
 
-    const popup = new Popup({
+    const popup = new maplibregl.Popup({
       offset: 18,
       closeButton: true,
       closeOnClick: false,
@@ -355,11 +358,11 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     // Wire the "View Details" button inside the popup
     popup.on('open', () => {
       const el = popup.getElement();
-      const btn = el?.querySelector<HTMLDivElement>(`[data-charger-id="${charger.id}"]`);
+      const btn = el?.querySelector<HTMLDivElement>(`[data-charger-id="${CSS.escape(charger.id)}"]`);
       btn?.addEventListener('click', () => {
         popup.remove();
-      const currentCharger = chargersRef.current.find((item) => item.id === charger.id);
-      onViewDetailsRef.current(currentCharger ?? charger);
+        const currentCharger = chargersRef.current.find((item) => item.id === charger.id);
+        onViewDetailsRef.current(currentCharger ?? charger);
       });
     });
 
@@ -392,7 +395,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
           background:#4A90E2;border:3px solid white;
           box-shadow:0 0 0 4px rgba(74,144,226,0.25);
         `;
-        new Marker({ element: el, anchor: 'center' })
+        new maplibregl.Marker({ element: el, anchor: 'center' })
           .setLngLat([longitude, latitude])
           .addTo(mapRef.current!);
 
@@ -445,10 +448,10 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       )}
 
       {/* No coordinates warning (shown as a banner, not full overlay) */}
-      {missingCoordinates > 0 && mapReady && (
+      {noCoords && mapReady && (
         <div className="absolute top-2 left-2 right-2 z-10 flex items-start gap-2 bg-[#FFFAEB] border border-[#FEC84B] rounded px-3 py-2 text-xs text-[#7A4F00] shadow">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{missingCoordinates} listing{missingCoordinates === 1 ? '' : 's'} {missingCoordinates === 1 ? 'needs' : 'need'} an exact location. Ask the provider to update its map location.</span>
+          <span>None of the filtered chargers have valid coordinates. Coordinates must be in "DD.DDDD° N" format.</span>
         </div>
       )}
 
@@ -492,9 +495,9 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
         )}
       </div>
 
-      {/* Attribution hint (OpenFreeMap / MapTiler) */}
+      {/* Attribution hint (OpenFreeMap) */}
       <div className="absolute bottom-1 left-2 z-10 text-[9px] text-[#888] pointer-events-none select-none">
-        {import.meta.env.VITE_MAP_TILES_API_KEY ? '© MapTiler' : '© OpenFreeMap'} · © OpenStreetMap
+        © OpenFreeMap · © OpenStreetMap
       </div>
     </div>
   );

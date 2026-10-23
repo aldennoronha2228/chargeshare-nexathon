@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BatteryCharging,
+  Bell,
   Calendar,
   Check,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   Database,
   Edit2,
   Fingerprint,
+  House,
   Inbox,
   LayoutGrid,
   LoaderCircle,
@@ -93,6 +95,8 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState('');
+  const [bookingNotice, setBookingNotice] = useState('');
+  const previousPendingBookingIds = useRef<Set<string> | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState('');
@@ -161,9 +165,25 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
   useEffect(() => {
     setBookingsLoading(true);
     setBookingsError('');
+    previousPendingBookingIds.current = null;
     const unsubscribe = subscribeToProviderBookings(
       user.uid,
       (next) => {
+        const pending = next.filter((booking) => booking.status === 'pending');
+        const pendingIds = new Set(pending.map((booking) => booking.id));
+        const previousIds = previousPendingBookingIds.current;
+        if (previousIds) {
+          const newBooking = pending.find((booking) => !previousIds.has(booking.id));
+          if (newBooking) {
+            setBookingNotice(`New booking request from ${newBooking.userName || 'a driver'}.`);
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              new Notification('New ChargeShare booking', {
+                body: `${newBooking.userName || 'A driver'} requested ${newBooking.chargerTitle || 'your charger'}.`,
+              });
+            }
+          }
+        }
+        previousPendingBookingIds.current = pendingIds;
         setBookings(next);
         setBookingsLoading(false);
       },
@@ -306,11 +326,33 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
           {/* Actions & Profile */}
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => navigateTo(ROUTES.landing)}
-              aria-label="Back to explore"
-              className="text-xs font-sans uppercase tracking-wider text-neutral-400 hover:text-white px-2.5 py-1 rounded transition-colors hidden sm:inline-block"
+              type="button"
+              aria-label={pendingBookings.length ? `${pendingBookings.length} pending booking requests` : 'Booking notifications'}
+              title={pendingBookings.length ? `${pendingBookings.length} pending booking requests` : 'Booking notifications'}
+              onClick={async () => {
+                if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                  await Notification.requestPermission();
+                }
+                setBookingNotice('');
+                setActiveNav('bookings');
+              }}
+              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Explore Map
+              <Bell size={15} />
+              {pendingBookings.length > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-4 text-white">
+                  {pendingBookings.length > 9 ? '9+' : pendingBookings.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateTo(ROUTES.landing)}
+              aria-label="Go to home page"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <House size={14} />
+              <span>Home</span>
             </button>
 
             {/* Profile Drawer Toggle Button */}
@@ -523,6 +565,19 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
 
       {/* Responsive Flexible Main Layout */}
       <main className="w-full max-w-7xl mx-auto pt-20 px-4 sm:px-6 lg:px-8 space-y-6">
+        {bookingsError && (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            Booking updates could not be loaded: {bookingsError}
+          </div>
+        )}
+        {bookingNotice && (
+          <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <span>{bookingNotice}</span>
+            <button type="button" onClick={() => { setBookingNotice(''); setActiveNav('bookings'); }} className="shrink-0 font-semibold underline underline-offset-2">
+              View request
+            </button>
+          </div>
+        )}
         {/* TAB 1: OVERVIEW */}
         {activeNav === 'overview' && (
           <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
@@ -1486,7 +1541,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
       </main>
 
       {/* Fixed Bottom Navigation (Mobile Only: lg:hidden) */}
-      <nav className="fixed bottom-0 w-full z-40 bg-[#FAF8F7]/95 backdrop-blur-md border-t border-[#EBE7E5]/80 lg:hidden">
+      <nav className="fixed bottom-0 w-full z-40 bg-[#FAF8F7]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md border-t border-[#EBE7E5]/80 lg:hidden">
         <div className="flex items-center justify-around h-14 max-w-2xl mx-auto px-2">
           {NAV_ITEMS.map(({ id, label, Icon }) => {
             const active = activeNav === id;

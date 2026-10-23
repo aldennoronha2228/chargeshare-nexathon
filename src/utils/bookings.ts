@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   onSnapshot,
-  orderBy,
   query,
   setDoc,
   where,
@@ -114,13 +113,16 @@ export function subscribeToProviderBookings(
 ): Unsubscribe {
   const q = query(
     collection(db, 'bookings'),
-    where('providerId', '==', providerId),
-    orderBy('createdAt', 'desc')
+    where('providerId', '==', providerId)
   );
 
   return onSnapshot(
     q,
-    (snapshot) => onBookings(snapshot.docs.map(toBooking)),
+    (snapshot) => onBookings(
+      snapshot.docs
+        .map(toBooking)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    ),
     (error) => onError(error.message)
   );
 }
