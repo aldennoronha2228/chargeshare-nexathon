@@ -42,6 +42,7 @@ export interface ProviderCharger {
   createdAt: string;
   status: 'active' | 'inactive';
   coordinates?: { lat: number; lng: number } | null;
+  locationConfirmed?: boolean;
   compatibleVehicles: string[];
 }
 
@@ -53,7 +54,7 @@ export function toClientListing(charger: PublicProviderCharger): ChargerListing 
   // The old form stored Bangalore's centre for every provider, which was not
   // the charger's real position. Do not misrepresent that placeholder as a pin.
   const wasLegacyPlaceholder = rawCoordinates?.lat === 12.9716 && rawCoordinates?.lng === 77.5946;
-  const coordinates = rawCoordinates && !wasLegacyPlaceholder
+  const coordinates = rawCoordinates && (charger.locationConfirmed === true || !wasLegacyPlaceholder)
     ? rawCoordinates
     : null;
   const pricePerKwh = charger.price;
@@ -132,6 +133,7 @@ function toProviderCharger(snapshot: QueryDocumentSnapshot<DocumentData>): Provi
     createdAt: String(data.createdAt ?? ''),
     status: (data.status as 'active' | 'inactive') ?? 'active',
     coordinates: data.coordinates,
+    locationConfirmed: data.locationConfirmed === true,
     compatibleVehicles: Array.isArray(data.compatibleVehicles) ? data.compatibleVehicles : [],
   };
 }

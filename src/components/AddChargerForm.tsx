@@ -175,8 +175,17 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [title, setTitle] = useState(initialCharger?.title ?? '');
   const [addressLine, setAddressLine] = useState(initialCharger?.addressLine ?? '');
   const [devicePosition, setDevicePosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
-  const [selectedPosition, setSelectedPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const initialCoordinates = initialCharger?.coordinates;
+  const initialCoordinatesAreConfirmed = Boolean(
+    initialCoordinates
+    && (initialCharger?.locationConfirmed === true
+      || initialCoordinates.lat !== 12.9716
+      || initialCoordinates.lng !== 77.5946)
+  );
+  const [selectedPosition, setSelectedPosition] = useState<{ lat: number; lng: number } | null>(
+    initialCoordinatesAreConfirmed && initialCoordinates ? initialCoordinates : null
+  );
+  const [locationConfirmed, setLocationConfirmed] = useState(initialCoordinatesAreConfirmed);
   const [locationMessage, setLocationMessage] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
@@ -389,6 +398,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         status: 'active',
         compatibleVehicles,
         coordinates: selectedPosition,
+        locationConfirmed: true,
       });
     } catch (submitError) {
       setSaveError(
