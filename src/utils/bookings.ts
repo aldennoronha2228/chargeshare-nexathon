@@ -2,6 +2,7 @@ import {
   collection,
   addDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -53,6 +54,21 @@ export interface NewBookingRequest {
 }
 
 export async function createBookingRequest(input: NewBookingRequest): Promise<string> {
+  if (!input.userId || !input.providerId || !input.chargerId || input.userId === input.providerId) {
+    throw new Error('A signed-in driver and an active provider listing are required to book.');
+  }
+  if (!Number.isFinite(input.totalKwh) || input.totalKwh < 2 || input.totalKwh > 100
+    || !Number.isFinite(input.totalPrice) || input.totalPrice <= 0) {
+    throw new Error('Check the requested energy amount and charger price, then try again.');
+  }
+
+  const listing = await getDoc(doc(db, 'public_chargers', input.chargerId));
+  if (!listing.exists()
+    || listing.data().status !== 'active'
+    || listing.data().providerId !== input.providerId) {
+    throw new Error('This charger is no longer accepting booking requests. Refresh the map and choose another listing.');
+  }
+
   const platformFee = input.totalPrice * 0.1;
   const { userPhoto, ...booking } = input;
   const reference = await addDoc(collection(db, 'bookings'), {

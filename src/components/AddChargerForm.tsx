@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
-import { validateProviderChargerForm } from '../utils/marketplaceLogic';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { validateProviderChargerForm } from '../utils/marketplaceLogic';
 import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
@@ -18,15 +18,20 @@ const CONNECTORS: ConnectorType[] = ['Type 2 AC', 'Bharat AC001', '15A 3-Pin Soc
 const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler (Car)', 'Bus/Truck'];
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const EMPTY_PHOTO: ChargerPhoto = { name: '', url: '', publicId: '' };
 
 const INPUT =
   'w-full rounded border border-[#E2E5E5] bg-[#F5F3F1] px-3.5 py-2.5 text-xs font-sans text-[#111111] outline-none transition-all placeholder:text-[#747878] focus:border-black focus:bg-white';
 const LABEL = 'text-[10px] font-sans font-semibold uppercase tracking-[0.14em] text-[#636563]';
 const ERROR = 'text-[11px] font-sans text-red-600 mt-1';
 
-async function uploadPhoto(file: File, providerId: string): Promise<ChargerPhoto> {
-  const uploaded = await uploadImageToCloudinary(file, providerId);
-  return { name: file.name, url: uploaded.url, publicId: uploaded.publicId };
+async function uploadPhoto(
+  file: File,
+  providerId: string,
+  onProgress: (progress: number) => void,
+): Promise<ChargerPhoto> {
+  const image = await uploadImageToCloudinary(file, providerId, onProgress);
+  return { name: file.name, url: image.url, publicId: image.publicId };
 }
 
 interface PhotoFieldProps {
@@ -36,8 +41,10 @@ interface PhotoFieldProps {
   photo: ChargerPhoto | null;
   error?: string;
   busy: boolean;
+  progress: number | null;
   providerId: string;
   onBusyChange: (busy: boolean) => void;
+  onProgressChange: (progress: number | null) => void;
   onChange: (photo: ChargerPhoto | null) => void;
 }
 
@@ -48,8 +55,10 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
   photo,
   error,
   busy,
+  progress,
   providerId,
   onBusyChange,
+  onProgressChange,
   onChange,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,14 +80,22 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
 
     setLocalError('');
     onBusyChange(true);
+    onProgressChange(null);
     try {
-      onChange(await uploadPhoto(file, providerId));
+      onChange(await uploadPhoto(file, providerId, onProgressChange));
     } catch (uploadError) {
-      setLocalError(
-        uploadError instanceof Error ? uploadError.message : 'Upload failed. Please try again.'
-      );
+      const code = (uploadError as { code?: string } | null)?.code;
+      const message = code === 'storage/unauthorized'
+        ? 'Firebase Storage denied this upload. Deploy the project storage.rules and try again.'
+        : code === 'storage/canceled'
+          ? 'Upload was cancelled. Please retry.'
+          : uploadError instanceof Error
+            ? uploadError.message
+            : 'Upload failed. Please try again.';
+      setLocalError(message);
     } finally {
       onBusyChange(false);
+      onProgressChange(null);
     }
   };
 
@@ -92,7 +109,18 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
       {busy ? (
         <div className="flex h-36 flex-col items-center justify-center gap-2 rounded border border-dashed border-[#E2E5E5] bg-[#F5F3F1] text-[#636563]">
           <LoaderCircle size={20} className="animate-spin text-black" />
-          <span className="text-[10px] font-sans uppercase tracking-wider text-black">Uploading…</span>
+          <span className="text-[10px] font-sans uppercase tracking-wider text-black">
+            {progress === null
+              ? 'Optimizing photo…'
+              : progress === 100
+                ? 'Finalizing photo…'
+                : `Uploading ${progress}%…`}
+          </span>
+          {progress !== null && (
+            <div className="h-1 w-40 overflow-hidden rounded bg-[#E2E5E5]" aria-label={`Upload ${progress}% complete`}>
+              <div className="h-full bg-black transition-[width]" style={{ width: `${progress}%` }} />
+            </div>
+          )}
         </div>
       ) : photo ? (
         <div className="overflow-hidden rounded border border-[#E2E5E5] bg-[#F5F3F1]">
@@ -156,6 +184,16 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [city, setCity] = useState<Exclude<IndianCity, 'All Cities'>>(
     initialCharger?.city ?? 'Bengaluru'
   );
+  const legacyDefaultPoint = initialCharger?.coordinates?.lat === 12.9716
+    && initialCharger?.coordinates?.lng === 77.5946;
+  const [coordinates, setCoordinates] = useState(() => {
+    const initial = initialCharger?.coordinates;
+    return initial && !legacyDefaultPoint
+      ? { lat: String(initial.lat), lng: String(initial.lng) }
+      : { lat: '', lng: '' };
+  });
+  const [preciseLocation, setPreciseLocation] = useState(Boolean(initialCharger?.coordinates && !legacyDefaultPoint));
+  const [locating, setLocating] = useState(false);
   const [connector, setConnector] = useState<ConnectorType>(
     initialCharger?.connector ?? 'Type 2 AC'
   );
@@ -171,23 +209,62 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [availableTo, setAvailableTo] = useState(initialCharger?.availableTo ?? '21:00');
   const [accessNotes, setAccessNotes] = useState(initialCharger?.accessNotes ?? '');
   const [chargerPhoto, setChargerPhoto] = useState<ChargerPhoto | null>(
-    initialCharger?.chargerPhoto ?? null
+    initialCharger?.chargerPhoto?.url ? initialCharger.chargerPhoto : null
   );
   const [spacePhoto, setSpacePhoto] = useState<ChargerPhoto | null>(
-    initialCharger?.spacePhoto ?? null
+    initialCharger?.spacePhoto?.url ? initialCharger.spacePhoto : null
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState({ charger: false, space: false });
+  const [uploadProgress, setUploadProgress] = useState<{ charger: number | null; space: number | null }>({
+    charger: null,
+    space: null,
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const uploadInProgress = uploading.charger || uploading.space;
   const busy = uploadInProgress || saving;
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setErrors((prev) => ({ ...prev, coordinates: 'Location is not supported by this browser. Enter coordinates below.' }));
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: position }) => {
+        setCoordinates({ lat: position.latitude.toFixed(6), lng: position.longitude.toFixed(6) });
+        setPreciseLocation(true);
+        setErrors((prev) => ({ ...prev, coordinates: '' }));
+        setLocating(false);
+      },
+      (error) => {
+        setErrors((prev) => ({
+          ...prev,
+          coordinates: error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. Enter the charger coordinates manually.'
+            : 'Could not get your location. Enter the charger coordinates manually.',
+        }));
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (busy) return;
+
+    const latitude = Number(coordinates.lat);
+    const longitude = Number(coordinates.lng);
+    if (!preciseLocation || !coordinates.lat.trim() || !coordinates.lng.trim()
+      || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
+      || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setErrors((prev) => ({ ...prev, coordinates: 'Set the charger’s exact location with the location button or enter its coordinates. A city-centre pin is not accurate enough.' }));
+      return;
+    }
 
     const validation = validateProviderChargerForm({
       title,
@@ -206,7 +283,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       compatibleVehicles,
     });
 
-    if (!validation.valid || !chargerPhoto || !spacePhoto) {
+    if (!validation.valid) {
       setErrors(validation.errors);
       return;
     }
@@ -227,11 +304,11 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         availableFrom,
         availableTo,
         accessNotes: accessNotes.trim(),
-        chargerPhoto,
-        spacePhoto,
+        chargerPhoto: chargerPhoto ?? EMPTY_PHOTO,
+        spacePhoto: spacePhoto ?? EMPTY_PHOTO,
         status: 'active',
         compatibleVehicles,
-        coordinates: { lat: 12.9716, lng: 77.5946 },
+        coordinates: { lat: latitude, lng: longitude },
       });
     } catch (submitError) {
       setSaveError(
@@ -284,8 +361,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
           {errors.title && <p className={ERROR}>{errors.title}</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-connector" className={LABEL}>
               Connector
             </label>
@@ -311,7 +388,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
               id="charger-power"
               type="number"
               step="0.1"
-              min="0"
+              min="2"
               value={powerKw}
               onChange={(event) => setPowerKw(event.target.value)}
               className={`${INPUT} font-mono`}
@@ -319,26 +396,29 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             {errors.powerKw && <p className={ERROR}>{errors.powerKw}</p>}
           </div>
 
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-price" className={LABEL}>
               Price (₹)
             </label>
-            <div className="flex gap-2">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
               <input
                 id="charger-price"
                 type="number"
-                step="0.5"
-                min="0"
+                step="0.01"
+                min="5"
+                max="500"
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
-                className={`${INPUT} flex-1 font-mono`}
+                aria-invalid={Boolean(errors.price)}
+                className={`${INPUT} min-w-0 font-mono`}
               />
               <select
                 value={pricingType}
                 onChange={(event) =>
                   setPricingType(event.target.value as 'per_kwh' | 'per_session')
                 }
-                className={`${INPUT} w-24`}
+                aria-label="Price unit"
+                className={INPUT}
               >
                 <option value="per_kwh">/kWh</option>
                 <option value="per_session">/sess</option>
@@ -377,8 +457,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
           {errors.compatibleVehicles && <p className={ERROR}>{errors.compatibleVehicles}</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
-          <div className="space-y-1">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-address" className={LABEL}>
               Address & Landmark
             </label>
@@ -393,24 +473,25 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             {errors.addressLine && <p className={ERROR}>{errors.addressLine}</p>}
           </div>
 
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-locality" className={LABEL}>
               Locality & City
             </label>
-            <div className="flex gap-2">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,0.9fr)] gap-2">
               <input
                 id="charger-locality"
                 type="text"
                 value={locality}
                 onChange={(event) => setLocality(event.target.value)}
                 placeholder="e.g., Indiranagar"
-                className={`${INPUT} flex-1`}
+                aria-invalid={Boolean(errors.locality)}
+                className={`${INPUT} min-w-0`}
               />
               <select
                 id="charger-city"
                 value={city}
                 onChange={(event) => setCity(event.target.value as Exclude<IndianCity, 'All Cities'>)}
-                className={`${INPUT} w-28`}
+                className={INPUT}
               >
                 {CITIES.map((c) => (
                   <option key={c} value={c}>
@@ -421,6 +502,60 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             </div>
             {errors.locality && <p className={ERROR}>{errors.locality}</p>}
           </div>
+        </div>
+
+        <div className="space-y-2 border-t border-[#EBE7E5] pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className={LABEL}>Map Location</p>
+              <p className="mt-1 text-[11px] text-[#747878]">
+                Set the exact charger location so drivers see the correct map pin.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={locating}
+              className="rounded border border-[#E2E5E5] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-black hover:bg-[#F5F3F1] disabled:opacity-50"
+            >
+              {locating ? 'Getting location…' : 'Use current location'}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-[10px] text-[#636563]" htmlFor="charger-latitude">
+              Latitude
+              <input
+                id="charger-latitude"
+                type="number"
+                min="-90"
+                max="90"
+                step="any"
+                value={coordinates.lat}
+                onChange={(event) => {
+                  setCoordinates((current) => ({ ...current, lat: event.target.value }));
+                  setPreciseLocation(true);
+                }}
+                className={INPUT}
+              />
+            </label>
+            <label className="space-y-1 text-[10px] text-[#636563]" htmlFor="charger-longitude">
+              Longitude
+              <input
+                id="charger-longitude"
+                type="number"
+                min="-180"
+                max="180"
+                step="any"
+                value={coordinates.lng}
+                onChange={(event) => {
+                  setCoordinates((current) => ({ ...current, lng: event.target.value }));
+                  setPreciseLocation(true);
+                }}
+                className={INPUT}
+              />
+            </label>
+          </div>
+          {errors.coordinates && <p className={ERROR}>{errors.coordinates}</p>}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
@@ -468,25 +603,29 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
           <PhotoField
             id="charger-photo"
-            label="Charger Unit Photo"
-            question="Wallbox hardware photo"
+            label="Charger Unit Photo (Optional)"
+            question="Optional · wallbox hardware photo"
             photo={chargerPhoto}
             error={errors.chargerPhoto}
             busy={uploading.charger}
+            progress={uploadProgress.charger}
             providerId={providerId}
             onBusyChange={(busy) => setUploading((prev) => ({ ...prev, charger: busy }))}
+            onProgressChange={(progress) => setUploadProgress((prev) => ({ ...prev, charger: progress }))}
             onChange={setChargerPhoto}
           />
 
           <PhotoField
             id="charger-space-photo"
-            label="Parking Space Photo"
-            question="Bay parking slot"
+            label="Parking Space Photo (Optional)"
+            question="Optional · bay parking slot"
             photo={spacePhoto}
             error={errors.spacePhoto}
             busy={uploading.space}
+            progress={uploadProgress.space}
             providerId={providerId}
             onBusyChange={(busy) => setUploading((prev) => ({ ...prev, space: busy }))}
+            onProgressChange={(progress) => setUploadProgress((prev) => ({ ...prev, space: progress }))}
             onChange={setSpacePhoto}
           />
         </div>

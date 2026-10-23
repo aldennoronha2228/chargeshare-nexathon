@@ -5,6 +5,7 @@ import {
   orderBy,
   query,
   setDoc,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -48,10 +49,11 @@ export type PublicProviderCharger = ProviderCharger & { providerId: string };
 
 /** Converts the provider's real listing fields to the client marketplace view. */
 export function toClientListing(charger: PublicProviderCharger): ChargerListing {
-  // Older provider forms wrote this same Bangalore point for every listing.
   const rawCoordinates = charger.coordinates;
-  const coordinates = rawCoordinates
-    && !(rawCoordinates.lat === 12.9716 && rawCoordinates.lng === 77.5946)
+  // The old form stored Bangalore's centre for every provider, which was not
+  // the charger's real position. Do not misrepresent that placeholder as a pin.
+  const wasLegacyPlaceholder = rawCoordinates?.lat === 12.9716 && rawCoordinates?.lng === 77.5946;
+  const coordinates = rawCoordinates && !wasLegacyPlaceholder
     ? rawCoordinates
     : null;
   const pricePerKwh = charger.price;
@@ -187,8 +189,15 @@ export async function saveProviderCharger(
 ): Promise<string> {
   const reference = doc(chargersCollection(providerId));
   const record = { ...charger, createdAt: new Date().toISOString() };
-  await setDoc(reference, record);
-  await publishProviderCharger(providerId, { ...record, id: reference.id });
+  // Keep the provider record and client marketplace listing in sync as one write.
+  const batch = writeBatch(db);
+  batch.set(reference, record);
+  batch.set(doc(db, 'public_chargers', reference.id), {
+    ...record,
+    id: reference.id,
+    providerId,
+  });
+  await batch.commit();
   return reference.id;
 }
 
@@ -199,8 +208,10 @@ export async function updateProviderCharger(
   updates: Partial<ProviderCharger>
 ): Promise<void> {
   const reference = doc(db, 'providers', providerId, 'chargers', chargerId);
-  await setDoc(reference, updates, { merge: true });
-  await setDoc(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
+  const batch = writeBatch(db);
+  batch.set(reference, updates, { merge: true });
+  batch.set(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
+  await batch.commit();
 }
 
 /** Toggles the availability status of a charger. */

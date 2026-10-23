@@ -245,16 +245,8 @@ export function validateProviderChargerForm(input: ProviderChargerFormInput): Va
     errors.availability = 'The end time must be later than the start time.';
   }
 
-  if (!input.accessNotes || input.accessNotes.trim().length < 10) {
+  if (input.accessNotes.trim().length > 0 && input.accessNotes.trim().length < 10) {
     errors.accessNotes = 'Tell drivers how to get in and where to park (at least 10 characters).';
-  }
-
-  if (!input.hasChargerPhoto) {
-    errors.chargerPhoto = 'Upload a photo of the charger unit.';
-  }
-
-  if (!input.hasSpacePhoto) {
-    errors.spacePhoto = 'Upload a photo of the space where the car will be parked and charged.';
   }
 
   if (input.compatibleVehicles.length === 0) {

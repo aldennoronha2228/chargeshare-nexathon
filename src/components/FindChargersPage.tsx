@@ -736,10 +736,10 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const hasUnread = activeReservationCount > 0;
 
   return (
-    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-28 lg:pb-12">
+    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-24 md:pb-12">
       {/* ── Compact top navigation ─────────────────────────────────────────── */}
       <header className="find-chargers-topbar sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
-        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6">
+        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:gap-x-3 sm:px-6 md:flex-nowrap">
           <button
             type="button"
             onClick={goHome}
@@ -749,12 +749,50 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
             <span className="font-display text-[13px] font-bold tracking-[0.16em]">CHARGESHARE</span>
           </button>
           <span className="find-chargers-mode shrink-0 rounded border border-white/15 bg-white/10 px-2 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-widest text-white/85">
-            Explore
+            Client
           </span>
-          <span className="min-w-0 flex-1" />
+
+          <div className="hidden md:block md:flex-1">
+            <nav aria-label="Client navigation" className="mx-auto flex w-max items-center gap-1 rounded-full border border-white/10 bg-[#1C1C1C] p-1 md:mx-auto">
+              <button
+                type="button"
+                aria-current="page"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-black transition-colors sm:text-[10px]"
+              >
+                <Compass className="h-3.5 w-3.5" />
+                Explore
+              </button>
+              <button
+                type="button"
+                onClick={onOpenBookings}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <CalendarCheck className="h-3.5 w-3.5" />
+                Bookings
+              </button>
+              <button
+                type="button"
+                onClick={onOpenBookings}
+                title="Recent booking activity"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <Activity className="h-3.5 w-3.5" />
+                Activity
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenProfile('view')}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <UserRound className="h-3.5 w-3.5" />
+                Profile
+              </button>
+            </nav>
+          </div>
 
           {/* Notifications — shows real session state, never a fabricated count */}
-          <div ref={notifRef} className="relative shrink-0">
+          <div ref={notifRef} className="relative ml-auto shrink-0 md:ml-0">
             <button
               type="button"
               onClick={() => setNotifOpen((prev) => !prev)}
@@ -1056,6 +1094,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         )}
       </section>
 
+      <div className="find-chargers-desktop-layout">
       {/* ── Map ─────────────────────────────────────────────────────────────── */}
       <section className="find-chargers-map-section mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
         <div className="find-chargers-map-heading mb-0 flex items-center justify-between gap-2 rounded-t-xl border border-[#E5E2E1] bg-white px-4 py-3">
@@ -1097,8 +1136,8 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           onViewDetails={handleOpenDetails}
           className={
             view === 'map'
-              ? 'h-[440px] sm:h-[540px] lg:h-[640px]'
-              : 'h-[220px] sm:h-[300px] lg:h-[360px]'
+              ? 'h-[440px] sm:h-[540px] lg:h-[560px]'
+              : 'h-[300px] sm:h-[360px] lg:h-[420px]'
           }
         />
       </section>
@@ -1121,15 +1160,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
             <p className="sr-only">{locationLabel} · {summary.hosts} hosts · {isDefaultFilters ? 'nearest first' : `sorted by ${sortBy}`}</p>
           </div>
 
-          {view === 'list' && !showAll && results.length > INITIAL_VISIBLE && (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="shrink-0 cursor-pointer text-[12px] font-bold text-[#173D2C] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
-            >
-              View all ({results.length})
-            </button>
-          )}
         </div>
 
         {/* ── Results ──────────────────────────────────────────────────────── */}
@@ -1163,19 +1193,19 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           </div>
         ) : (
           <div className="mt-4 space-y-3">
-            {view === 'list' && primaryCharger && (
+            {primaryCharger && (
               <PrimaryChargerCard {...cardProps(primaryCharger)} />
             )}
 
-            {view === 'list' && compactChargers.map((charger) => (
+            {compactChargers.map((charger) => (
               <CompactChargerCard key={charger.id} {...cardProps(charger)} />
             ))}
 
-            {view === 'list' && miniChargers.map((charger) => (
+            {miniChargers.map((charger) => (
               <MiniChargerRow key={charger.id} {...cardProps(charger)} />
             ))}
 
-            {view === 'list' && !showAll && results.length > visibleResults.length && (
+            {!showAll && results.length > visibleResults.length && (
               <button
                 type="button"
                 onClick={() => setShowAll(true)}
@@ -1186,12 +1216,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
               </button>
             )}
 
-            {view === 'map' && (
-              <p className="rounded-2xl border border-[#D8D5CA] bg-white px-4 py-3 text-center text-[12px] text-[#565A52]">
-                Map view — tap a price marker to preview a charger, or switch to List to browse the
-                full details.
-              </p>
-            )}
           </div>
         )}
 
@@ -1212,49 +1236,25 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <span className="mt-1 block text-[10px] text-[#747878]">Neighbourhood EV charging marketplace</span>
         </div>
       </section>
-
-      {/* ── Fixed mobile bottom navigation ─────────────────────────────────── */}
-      <nav
-        aria-label="Primary mobile navigation"
-        className="find-chargers-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E2E1] bg-[#FCF9F8]/95 backdrop-blur lg:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="mx-auto flex max-w-[520px] items-stretch justify-around px-2 py-1.5">
-          <button
-            type="button"
-            aria-current="page"
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <Compass className="h-5 w-5" />
-            Explore
-          </button>
-          <button
-            type="button"
-            onClick={onOpenBookings}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <CalendarCheck className="h-5 w-5" />
-            Bookings
-          </button>
-          <button
-            type="button"
-            onClick={onOpenBookings}
-            title="Recent booking activity"
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <Activity className="h-5 w-5" />
-            Activity
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenProfile('view')}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <UserRound className="h-5 w-5" />
-            Profile
-          </button>
-        </div>
+      <nav className="find-chargers-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-[#FCF9F8] pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Client navigation">
+        <button type="button" aria-current="page" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#1C1B1B]">
+          <Compass className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-semibold uppercase tracking-wide">Explore</span>
+        </button>
+        <button type="button" onClick={onOpenBookings} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <CalendarCheck className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Bookings</span>
+        </button>
+        <button type="button" onClick={onOpenBookings} title="Recent booking activity" className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <Activity className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Activity</span>
+        </button>
+        <button type="button" onClick={() => onOpenProfile('view')} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <UserRound className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Profile</span>
+        </button>
       </nav>
+      </div>
     </div>
   );
 };

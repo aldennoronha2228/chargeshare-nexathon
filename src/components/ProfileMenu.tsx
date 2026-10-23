@@ -26,6 +26,8 @@ interface ProfileMenuProps {
    * at the right-hand end of a bar so the panel does not overflow the viewport.
    */
   align?: 'left' | 'right';
+  /** Adapts the account trigger for the dark landing navigation bar. */
+  variant?: 'light' | 'dark';
 }
 
 function initialsOf(user: FirebaseUser): string {
@@ -39,6 +41,7 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({
   user,
   onOpenProfile,
   align = 'left',
+  variant = 'light',
 }) => {
   const [open, setOpen]       = useState(false);
   const [pending, setPending] = useState(false);
@@ -199,7 +202,11 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({
             setOpen(true);
           }
         }}
-        className="inline-flex max-w-full items-center gap-2 rounded border border-transparent px-1.5 py-1 transition-colors hover:border-[#D8D5CA] hover:bg-[#EDE8D8] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+        className={`inline-flex max-w-full items-center gap-2 rounded border px-1.5 py-1 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 ${
+          variant === 'dark'
+            ? 'border-white/15 text-white hover:border-white/25 hover:bg-white/10 focus-visible:outline-[#D8F36A]'
+            : 'border-transparent hover:border-[#D8D5CA] hover:bg-[#EDE8D8] focus-visible:outline-[#173D2C]'
+        }`}
       >
         {user.photoURL && !imgError ? (
           <img
@@ -217,12 +224,12 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({
             {initialsOf(user) || <User className="w-3.5 h-3.5" />}
           </span>
         )}
-        <span className="hidden sm:inline max-w-[110px] truncate text-sm font-medium text-[#22251F]">
+        <span className={`hidden sm:inline max-w-[110px] truncate text-sm font-medium ${variant === 'dark' ? 'text-white' : 'text-[#22251F]'}`}>
           {firstName}
         </span>
         <ChevronDown
           aria-hidden="true"
-          className={`w-3.5 h-3.5 shrink-0 text-[#565A52] transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-3.5 h-3.5 shrink-0 transition-transform ${variant === 'dark' ? 'text-white/75' : 'text-[#565A52]'} ${open ? 'rotate-180' : ''}`}
         />
       </button>
 

@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isSmallImage() {
+      return request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Charger photos are shown to drivers; only their provider can upload them.
+    match /providers/{providerId}/chargers/{fileName} {
+      allow read: if true;
+      allow create, update: if isOwner(providerId) && isSmallImage();
+      allow delete: if isOwner(providerId);
+    }
+
+    // Preserve the existing signed-in profile photo upload feature.
+    match /profile-photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if isOwner(userId) && isSmallImage();
+      allow delete: if isOwner(userId);
+    }
+  }
+}
