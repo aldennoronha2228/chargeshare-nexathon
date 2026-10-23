@@ -153,6 +153,7 @@ interface ChargerMapProps {
   selectedChargerId: string | null;
   onSelectCharger: (charger: ChargerListing) => void;
   onViewDetails: (charger: ChargerListing) => void;
+  focusLocation?: { lat: number; lng: number; zoom: number };
   /** Height class — defaults to h-[420px] on mobile, h-[520px] on desktop */
   className?: string;
 }
@@ -164,6 +165,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   selectedChargerId,
   onSelectCharger,
   onViewDetails,
+  focusLocation,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -285,7 +287,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     });
 
     // Fly to bounds of visible chargers
-    if (validChargers.length > 0) {
+    if (!focusLocation && validChargers.length > 0) {
       if (validChargers.length === 1) {
         const pos = chargerLatLng(validChargers[0])!;
         map.flyTo({ center: [pos.lng, pos.lat], zoom: 14, duration: 800 });
@@ -299,7 +301,13 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
         map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
       }
     }
-  }, [chargers, selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chargers, selectedChargerId, mapReady, focusLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !focusLocation) return;
+    map.flyTo({ center: [focusLocation.lng, focusLocation.lat], zoom: focusLocation.zoom, duration: 1000 });
+  }, [focusLocation, mapReady]);
 
   // ── 3. Open popup for selected charger ────────────────────────────────────
   useEffect(() => {

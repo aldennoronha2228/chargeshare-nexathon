@@ -58,6 +58,7 @@ import { ROUTES, navigateTo } from '../utils/appRoute';
 import { ChargerThumbPlate } from './EditorialIllustrations';
 import { ChargerMap } from './ChargerMap';
 import { ProfileMenu, type ProfileMenuView } from './ProfileMenu';
+import { LocationSelectionModal, type SelectedLocation } from './LocationSelectionModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -613,7 +614,10 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const [showAll, setShowAll] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(true);
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
+  const [focusLocation, setFocusLocation] = useState<{ lat: number; lng: number; zoom: number } | undefined>();
+  const mapSectionRef = useRef<HTMLElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const { favouriteIds, toggleFavourite } = useFavourites(user?.uid ?? null);
@@ -638,9 +642,9 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   );
 
   const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
+    setFilters({ ...DEFAULT_FILTERS, searchQuery: selectedLocation?.area ?? '' });
     setSortBy('distance');
-  }, []);
+  }, [selectedLocation]);
 
   const isDefaultFilters = useMemo(
     () =>
@@ -667,11 +671,22 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   }, [notifOpen]);
 
   const locationLabel = useMemo(() => {
+    if (selectedLocation) return [selectedLocation.area, selectedLocation.city, selectedLocation.state, selectedLocation.country].filter(Boolean).join(', ');
     if (filters.city !== 'All Cities') return filters.city;
     const query = filters.searchQuery.trim();
     if (query) return query;
     return 'All of India';
-  }, [filters.city, filters.searchQuery]);
+  }, [filters.city, filters.searchQuery, selectedLocation]);
+
+  const handleLocationSubmit = useCallback(async (location: SelectedLocation) => {
+    setSelectedLocation(location);
+    setFocusLocation({ lat: location.latitude, lng: location.longitude, zoom: 12 });
+    setFilters((previous) => ({ ...previous, searchQuery: location.area }));
+    setSortBy('distance');
+    setView('map');
+    setLocationDialogOpen(false);
+    window.setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  }, []);
 
   const handleSelect = useCallback((charger: ChargerListing) => {
     setSelectedId(charger.id);
@@ -686,8 +701,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   );
 
   const focusSearch = useCallback(() => {
-    searchRef.current?.focus();
-    searchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setLocationDialogOpen(true);
   }, []);
 
   const toggleConnector = useCallback(
@@ -812,31 +826,16 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         </div>
       </header>
 
+      {locationDialogOpen && <LocationSelectionModal onSubmit={handleLocationSubmit} />}
+
       {/* ── Location search + filter chips ─────────────────────────────────── */}
       <section className="mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Search and filters">
         <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888]" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={filters.searchQuery}
-              onChange={(e) => patch('searchQuery', e.target.value)}
-              placeholder="Search area, address or locality"
-              aria-label="Search area, address or locality"
-              className="h-12 w-full rounded-2xl border border-[#D8D5CA] bg-white pl-10 pr-10 text-sm text-[#22251F] placeholder:text-[#AAA] focus:border-[#173D2C] focus:outline-none"
-            />
-            {filters.searchQuery && (
-              <button
-                type="button"
-                onClick={() => patch('searchQuery', '')}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#888] hover:text-[#22251F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <button type="button" onClick={() => setLocationDialogOpen(true)} className="inline-flex h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-[#D8D5CA] bg-white px-4 text-left text-sm text-[#22251F] hover:border-[#173D2C]">
+            <Navigation className="h-4 w-4 shrink-0 text-[#173D2C]" />
+            <span className="min-w-0 flex-1 truncate">{locationLabel}</span>
+            <span className="shrink-0 text-xs font-semibold text-[#173D2C]">Change area</span>
+          </button>
 
           <button
             type="button"
@@ -1055,7 +1054,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
       </section>
 
       {/* ── Map ─────────────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
+      <section ref={mapSectionRef} className="mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-[11px] text-[#565A52]">
             {results.length} charger{results.length !== 1 ? 's' : ''} on the map
@@ -1089,6 +1088,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
         <ChargerMap
           chargers={results}
+          focusLocation={focusLocation}
           selectedChargerId={selectedId}
           onSelectCharger={handleSelect}
           onViewDetails={handleOpenDetails}
