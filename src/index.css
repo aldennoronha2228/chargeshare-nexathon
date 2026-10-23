@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Plus Jakarta Sans", "JetBrains Mono", sans-serif;
+}
+
+@layer base {
+  :root {
+    --color-lime: #D8F36A;
+    --color-forest: #173D2C;
+    --color-ivory: #F6F3E9;
+    --color-ivory-deep: #EDE8D8;
+    --color-charcoal: #22251F;
+    --color-border: #D8D5CA;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background-color: #F6F3E9;
+    color: #22251F;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+.font-mono, .tabular-nums {
+  font-family: "Plus Jakarta Sans", "JetBrains Mono", sans-serif !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Custom tactile range inputs */
+input[type="range"].cs-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].cs-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 2px;
+  background: #285641;
+  border: 1px solid #3A6E56;
+}
+
+input[type="range"].cs-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #D8F36A;
+  border: 2px solid #173D2C;
+  margin-top: -8px;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input[type="range"].cs-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+input[type="range"].cs-slider:focus-visible {
+  outline: 2px solid #D8F36A;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

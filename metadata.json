@@ -1,0 +1,6 @@
+{
+  "name": "ChargeShare — Neighbourhood EV Charging Marketplace",
+  "description": "Peer-to-peer EV charging marketplace for India connecting electric vehicle drivers with homeowners and residential communities sharing private chargers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
