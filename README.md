@@ -146,29 +146,6 @@ The model is inspired by peer-to-peer charging platforms such as CoCharger in th
 - **Design for reliability:** make booking and payment status unambiguous.
 - **Respect privacy:** protect residential addresses and personal information.
 
-## Roadmap
-
-### Phase 1 — Validate the marketplace
-
-- Launch in one or two target cities
-- Onboard a small set of verified hosts
-- Support charger discovery, booking, and payments
-- Measure booking completion, repeat usage, and host activation
-
-### Phase 2 — Improve trust and operations
-
-- Add stronger identity and charger verification
-- Introduce safety checklists and incident reporting
-- Add cancellation, refund, and dispute workflows
-- Build host payouts and operational dashboards
-
-### Phase 3 — Expand the network
-
-- Partner with apartment complexes and housing societies
-- Add fleet and business accounts
-- Support more charger types and connector standards
-- Introduce subscriptions and loyalty features
-
 ## Success metrics
 
 - Number of verified active chargers
@@ -180,26 +157,6 @@ The model is inspired by peer-to-peer charging platforms such as CoCharger in th
 - Average driver and host rating
 - Cancellation and dispute rate
 - Average time to resolve incidents
-
-## Project status
-
-🚧 **Early concept / pre-MVP**
-
-This repository is being set up for the initial ChargeShare product exploration and MVP development.
-
-## Getting started
-
-Implementation details will be added as the technology stack is selected.
-
-Planned documentation will cover:
-
-- Local development setup
-- Environment variables
-- Database setup and migrations
-- Payment provider configuration
-- Map provider configuration
-- Running tests
-- Deployment
 
 ## Contributing
 
