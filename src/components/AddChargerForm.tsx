@@ -3,7 +3,7 @@ import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
 import { validateProviderChargerForm } from '../utils/marketplaceLogic';
-import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
+import { CITY_MAP_CENTERS, type ChargerPhoto, type NewProviderCharger, type ProviderCharger } from '../utils/providerChargers';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
   'Bengaluru',
@@ -184,6 +184,17 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [city, setCity] = useState<Exclude<IndianCity, 'All Cities'>>(
     initialCharger?.city ?? 'Bengaluru'
   );
+  const legacyDefaultPoint = initialCharger?.coordinates?.lat === 12.9716
+    && initialCharger?.coordinates?.lng === 77.5946;
+  const [coordinates, setCoordinates] = useState(() => {
+    const initial = initialCharger?.coordinates;
+    const center = CITY_MAP_CENTERS[initialCharger?.city ?? 'Bengaluru'];
+    return initial && !legacyDefaultPoint
+      ? { lat: String(initial.lat), lng: String(initial.lng) }
+      : { lat: String(center.lat), lng: String(center.lng) };
+  });
+  const [preciseLocation, setPreciseLocation] = useState(Boolean(initialCharger?.coordinates && !legacyDefaultPoint));
+  const [locating, setLocating] = useState(false);
   const [connector, setConnector] = useState<ConnectorType>(
     initialCharger?.connector ?? 'Type 2 AC'
   );
@@ -216,10 +227,45 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const uploadInProgress = uploading.charger || uploading.space;
   const busy = uploadInProgress || saving;
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setErrors((prev) => ({ ...prev, coordinates: 'Location is not supported by this browser. Enter coordinates below.' }));
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: position }) => {
+        setCoordinates({ lat: position.latitude.toFixed(6), lng: position.longitude.toFixed(6) });
+        setPreciseLocation(true);
+        setErrors((prev) => ({ ...prev, coordinates: '' }));
+        setLocating(false);
+      },
+      (error) => {
+        setErrors((prev) => ({
+          ...prev,
+          coordinates: error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. Enter the charger coordinates manually.'
+            : 'Could not get your location. Enter the charger coordinates manually.',
+        }));
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (busy) return;
+
+    const latitude = Number(coordinates.lat);
+    const longitude = Number(coordinates.lng);
+    if (!coordinates.lat.trim() || !coordinates.lng.trim()
+      || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
+      || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setErrors((prev) => ({ ...prev, coordinates: 'Enter valid map coordinates (latitude -90–90, longitude -180–180).' }));
+      return;
+    }
 
     const validation = validateProviderChargerForm({
       title,
@@ -263,7 +309,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         spacePhoto: spacePhoto ?? EMPTY_PHOTO,
         status: 'active',
         compatibleVehicles,
-        coordinates: { lat: 12.9716, lng: 77.5946 },
+        coordinates: { lat: latitude, lng: longitude },
       });
     } catch (submitError) {
       setSaveError(
@@ -445,7 +491,14 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
               <select
                 id="charger-city"
                 value={city}
-                onChange={(event) => setCity(event.target.value as Exclude<IndianCity, 'All Cities'>)}
+                onChange={(event) => {
+                  const nextCity = event.target.value as Exclude<IndianCity, 'All Cities'>;
+                  setCity(nextCity);
+                  if (!preciseLocation) {
+                    const center = CITY_MAP_CENTERS[nextCity];
+                    setCoordinates({ lat: String(center.lat), lng: String(center.lng) });
+                  }
+                }}
                 className={INPUT}
               >
                 {CITIES.map((c) => (
@@ -457,6 +510,60 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             </div>
             {errors.locality && <p className={ERROR}>{errors.locality}</p>}
           </div>
+        </div>
+
+        <div className="space-y-2 border-t border-[#EBE7E5] pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className={LABEL}>Map Location</p>
+              <p className="mt-1 text-[11px] text-[#747878]">
+                Default is the city centre. Pin the exact charger location for drivers.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={locating}
+              className="rounded border border-[#E2E5E5] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-black hover:bg-[#F5F3F1] disabled:opacity-50"
+            >
+              {locating ? 'Getting location…' : 'Use current location'}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-[10px] text-[#636563]" htmlFor="charger-latitude">
+              Latitude
+              <input
+                id="charger-latitude"
+                type="number"
+                min="-90"
+                max="90"
+                step="any"
+                value={coordinates.lat}
+                onChange={(event) => {
+                  setCoordinates((current) => ({ ...current, lat: event.target.value }));
+                  setPreciseLocation(true);
+                }}
+                className={INPUT}
+              />
+            </label>
+            <label className="space-y-1 text-[10px] text-[#636563]" htmlFor="charger-longitude">
+              Longitude
+              <input
+                id="charger-longitude"
+                type="number"
+                min="-180"
+                max="180"
+                step="any"
+                value={coordinates.lng}
+                onChange={(event) => {
+                  setCoordinates((current) => ({ ...current, lng: event.target.value }));
+                  setPreciseLocation(true);
+                }}
+                className={INPUT}
+              />
+            </label>
+          </div>
+          {errors.coordinates && <p className={ERROR}>{errors.coordinates}</p>}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">

@@ -5,6 +5,7 @@ import {
   orderBy,
   query,
   setDoc,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -12,6 +13,16 @@ import {
 import { db } from '../firebase';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
 import type { ChargerListing } from '../data/demoChargers';
+
+/** Approximate map defaults used until the provider pins their exact location. */
+export const CITY_MAP_CENTERS: Record<Exclude<IndianCity, 'All Cities'>, { lat: number; lng: number }> = {
+  Bengaluru: { lat: 12.9716, lng: 77.5946 },
+  Pune: { lat: 18.5204, lng: 73.8567 },
+  Mumbai: { lat: 19.076, lng: 72.8777 },
+  'Delhi NCR': { lat: 28.6139, lng: 77.209 },
+  Hyderabad: { lat: 17.385, lng: 78.4867 },
+  Chennai: { lat: 13.0827, lng: 80.2707 },
+};
 
 export interface ChargerPhoto {
   name: string;
@@ -48,12 +59,13 @@ export type PublicProviderCharger = ProviderCharger & { providerId: string };
 
 /** Converts the provider's real listing fields to the client marketplace view. */
 export function toClientListing(charger: PublicProviderCharger): ChargerListing {
-  // Older provider forms wrote this same Bangalore point for every listing.
   const rawCoordinates = charger.coordinates;
-  const coordinates = rawCoordinates
-    && !(rawCoordinates.lat === 12.9716 && rawCoordinates.lng === 77.5946)
+  // Existing records used Bangalore's center as a placeholder for every city.
+  // Show those legacy listings near the selected city rather than hiding them.
+  const wasLegacyPlaceholder = rawCoordinates?.lat === 12.9716 && rawCoordinates?.lng === 77.5946;
+  const coordinates = rawCoordinates && !wasLegacyPlaceholder
     ? rawCoordinates
-    : null;
+    : CITY_MAP_CENTERS[charger.city] ?? CITY_MAP_CENTERS.Bengaluru;
   const pricePerKwh = charger.price;
   const availableNow = charger.status === 'active';
   return {
@@ -84,9 +96,7 @@ export function toClientListing(charger: PublicProviderCharger): ChargerListing 
     cableLengthMeters: null,
     accessNotes: charger.accessNotes,
     compatibleVehicles: charger.compatibleVehicles,
-    coordinates: coordinates
-      ? { lat: String(coordinates.lat), lng: String(coordinates.lng) }
-      : { lat: '', lng: '' },
+    coordinates: { lat: String(coordinates.lat), lng: String(coordinates.lng) },
     visualTheme: 'driveway-canopy',
     slots: availableNow
       ? [{ id: `${charger.id}-provider-window`, label: 'Provider availability', window: `${charger.availableFrom} – ${charger.availableTo}`, available: true }]
@@ -187,14 +197,15 @@ export async function saveProviderCharger(
 ): Promise<string> {
   const reference = doc(chargersCollection(providerId));
   const record = { ...charger, createdAt: new Date().toISOString() };
-  // Persist the provider's source record first; the marketplace projection is
-  // secondary and must not make a successful provider save look like a failure.
-  await setDoc(reference, record);
-  try {
-    await publishProviderCharger(providerId, { ...record, id: reference.id });
-  } catch (error) {
-    console.error('Charger saved to the provider account, but publishing to the client marketplace failed.', error);
-  }
+  // Keep the provider record and client marketplace listing in sync as one write.
+  const batch = writeBatch(db);
+  batch.set(reference, record);
+  batch.set(doc(db, 'public_chargers', reference.id), {
+    ...record,
+    id: reference.id,
+    providerId,
+  });
+  await batch.commit();
   return reference.id;
 }
 
@@ -205,12 +216,10 @@ export async function updateProviderCharger(
   updates: Partial<ProviderCharger>
 ): Promise<void> {
   const reference = doc(db, 'providers', providerId, 'chargers', chargerId);
-  await setDoc(reference, updates, { merge: true });
-  try {
-    await setDoc(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
-  } catch (error) {
-    console.error('Charger changes were saved to the provider account, but marketplace publishing failed.', error);
-  }
+  const batch = writeBatch(db);
+  batch.set(reference, updates, { merge: true });
+  batch.set(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
+  await batch.commit();
 }
 
 /** Toggles the availability status of a charger. */
