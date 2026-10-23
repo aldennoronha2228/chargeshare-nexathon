@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
+import { storage } from '../firebase';
 import { validateProviderChargerForm } from '../utils/marketplaceLogic';
-import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { optimizeImageForUpload } from '../utils/imageOptimization';
 import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
@@ -18,6 +20,7 @@ const CONNECTORS: ConnectorType[] = ['Type 2 AC', 'Bharat AC001', '15A 3-Pin Soc
 const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler (Car)', 'Bus/Truck'];
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const EMPTY_PHOTO: ChargerPhoto = { name: '', url: '', publicId: '' };
 
 const INPUT =
   'w-full rounded border border-[#E2E5E5] bg-[#F5F3F1] px-3.5 py-2.5 text-xs font-sans text-[#111111] outline-none transition-all placeholder:text-[#747878] focus:border-black focus:bg-white';
@@ -25,8 +28,13 @@ const LABEL = 'text-[10px] font-sans font-semibold uppercase tracking-[0.14em] t
 const ERROR = 'text-[11px] font-sans text-red-600 mt-1';
 
 async function uploadPhoto(file: File, providerId: string): Promise<ChargerPhoto> {
-  const uploaded = await uploadImageToCloudinary(file, providerId);
-  return { name: file.name, url: uploaded.url, publicId: uploaded.publicId };
+  const optimizedFile = await optimizeImageForUpload(file);
+  const safeBaseName = optimizedFile.name.replace(/[^a-zA-Z0-9._-]/g, '-') || 'charger-photo.webp';
+  const fileId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const path = `providers/${providerId}/chargers/${fileId}-${safeBaseName}`;
+  const fileReference = storageRef(storage, path);
+  await uploadBytes(fileReference, optimizedFile, { contentType: optimizedFile.type });
+  return { name: file.name, url: await getDownloadURL(fileReference), publicId: path };
 }
 
 interface PhotoFieldProps {
@@ -92,7 +100,7 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
       {busy ? (
         <div className="flex h-36 flex-col items-center justify-center gap-2 rounded border border-dashed border-[#E2E5E5] bg-[#F5F3F1] text-[#636563]">
           <LoaderCircle size={20} className="animate-spin text-black" />
-          <span className="text-[10px] font-sans uppercase tracking-wider text-black">Uploading…</span>
+          <span className="text-[10px] font-sans uppercase tracking-wider text-black">Optimizing &amp; uploading…</span>
         </div>
       ) : photo ? (
         <div className="overflow-hidden rounded border border-[#E2E5E5] bg-[#F5F3F1]">
@@ -171,10 +179,10 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [availableTo, setAvailableTo] = useState(initialCharger?.availableTo ?? '21:00');
   const [accessNotes, setAccessNotes] = useState(initialCharger?.accessNotes ?? '');
   const [chargerPhoto, setChargerPhoto] = useState<ChargerPhoto | null>(
-    initialCharger?.chargerPhoto ?? null
+    initialCharger?.chargerPhoto?.url ? initialCharger.chargerPhoto : null
   );
   const [spacePhoto, setSpacePhoto] = useState<ChargerPhoto | null>(
-    initialCharger?.spacePhoto ?? null
+    initialCharger?.spacePhoto?.url ? initialCharger.spacePhoto : null
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState({ charger: false, space: false });
@@ -206,7 +214,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       compatibleVehicles,
     });
 
-    if (!validation.valid || !chargerPhoto || !spacePhoto) {
+    if (!validation.valid) {
       setErrors(validation.errors);
       return;
     }
@@ -227,8 +235,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         availableFrom,
         availableTo,
         accessNotes: accessNotes.trim(),
-        chargerPhoto,
-        spacePhoto,
+        chargerPhoto: chargerPhoto ?? EMPTY_PHOTO,
+        spacePhoto: spacePhoto ?? EMPTY_PHOTO,
         status: 'active',
         compatibleVehicles,
         coordinates: { lat: 12.9716, lng: 77.5946 },
@@ -284,8 +292,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
           {errors.title && <p className={ERROR}>{errors.title}</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-connector" className={LABEL}>
               Connector
             </label>
@@ -311,7 +319,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
               id="charger-power"
               type="number"
               step="0.1"
-              min="0"
+              min="2"
               value={powerKw}
               onChange={(event) => setPowerKw(event.target.value)}
               className={`${INPUT} font-mono`}
@@ -319,26 +327,29 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             {errors.powerKw && <p className={ERROR}>{errors.powerKw}</p>}
           </div>
 
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-price" className={LABEL}>
               Price (₹)
             </label>
-            <div className="flex gap-2">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
               <input
                 id="charger-price"
                 type="number"
-                step="0.5"
-                min="0"
+                step="0.01"
+                min="5"
+                max="500"
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
-                className={`${INPUT} flex-1 font-mono`}
+                aria-invalid={Boolean(errors.price)}
+                className={`${INPUT} min-w-0 font-mono`}
               />
               <select
                 value={pricingType}
                 onChange={(event) =>
                   setPricingType(event.target.value as 'per_kwh' | 'per_session')
                 }
-                className={`${INPUT} w-24`}
+                aria-label="Price unit"
+                className={INPUT}
               >
                 <option value="per_kwh">/kWh</option>
                 <option value="per_session">/sess</option>
@@ -377,8 +388,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
           {errors.compatibleVehicles && <p className={ERROR}>{errors.compatibleVehicles}</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
-          <div className="space-y-1">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-address" className={LABEL}>
               Address & Landmark
             </label>
@@ -393,24 +404,25 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             {errors.addressLine && <p className={ERROR}>{errors.addressLine}</p>}
           </div>
 
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <label htmlFor="charger-locality" className={LABEL}>
               Locality & City
             </label>
-            <div className="flex gap-2">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,0.9fr)] gap-2">
               <input
                 id="charger-locality"
                 type="text"
                 value={locality}
                 onChange={(event) => setLocality(event.target.value)}
                 placeholder="e.g., Indiranagar"
-                className={`${INPUT} flex-1`}
+                aria-invalid={Boolean(errors.locality)}
+                className={`${INPUT} min-w-0`}
               />
               <select
                 id="charger-city"
                 value={city}
                 onChange={(event) => setCity(event.target.value as Exclude<IndianCity, 'All Cities'>)}
-                className={`${INPUT} w-28`}
+                className={INPUT}
               >
                 {CITIES.map((c) => (
                   <option key={c} value={c}>
@@ -468,8 +480,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#EBE7E5]">
           <PhotoField
             id="charger-photo"
-            label="Charger Unit Photo"
-            question="Wallbox hardware photo"
+            label="Charger Unit Photo (Optional)"
+            question="Optional · wallbox hardware photo"
             photo={chargerPhoto}
             error={errors.chargerPhoto}
             busy={uploading.charger}
@@ -480,8 +492,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
 
           <PhotoField
             id="charger-space-photo"
-            label="Parking Space Photo"
-            question="Bay parking slot"
+            label="Parking Space Photo (Optional)"
+            question="Optional · bay parking slot"
             photo={spacePhoto}
             error={errors.spacePhoto}
             busy={uploading.space}

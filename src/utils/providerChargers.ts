@@ -187,8 +187,14 @@ export async function saveProviderCharger(
 ): Promise<string> {
   const reference = doc(chargersCollection(providerId));
   const record = { ...charger, createdAt: new Date().toISOString() };
+  // Persist the provider's source record first; the marketplace projection is
+  // secondary and must not make a successful provider save look like a failure.
   await setDoc(reference, record);
-  await publishProviderCharger(providerId, { ...record, id: reference.id });
+  try {
+    await publishProviderCharger(providerId, { ...record, id: reference.id });
+  } catch (error) {
+    console.error('Charger saved to the provider account, but publishing to the client marketplace failed.', error);
+  }
   return reference.id;
 }
 
@@ -200,7 +206,11 @@ export async function updateProviderCharger(
 ): Promise<void> {
   const reference = doc(db, 'providers', providerId, 'chargers', chargerId);
   await setDoc(reference, updates, { merge: true });
-  await setDoc(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
+  try {
+    await setDoc(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
+  } catch (error) {
+    console.error('Charger changes were saved to the provider account, but marketplace publishing failed.', error);
+  }
 }
 
 /** Toggles the availability status of a charger. */

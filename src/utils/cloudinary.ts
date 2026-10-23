@@ -1,3 +1,5 @@
+import { optimizeImageForUpload } from './imageOptimization';
+
 interface CloudinaryCredentials {
   cloudName: string;
   apiKey: string;
@@ -111,7 +113,7 @@ export async function uploadImageToCloudinary(
 
   const folder = providerUploadFolder(providerId);
   const body = new FormData();
-  body.append('file', file);
+  body.append('file', await optimizeImageForUpload(file));
 
   if (usesSignedUpload()) {
     if (!crypto.subtle) {
