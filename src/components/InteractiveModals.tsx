@@ -1,7 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, CheckCircle2, Trash2, Zap } from 'lucide-react';
+import type { User } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
 import type { ChargerListing, ConnectorType, IndianCity } from '../data/demoChargers';
 import { validateHostListingForm } from '../utils/marketplaceLogic';
+import { auth } from '../firebase';
+
+function describeAuthError(error: unknown): string {
+  const code = (error as { code?: string } | null)?.code ?? '';
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Incorrect email or password.';
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists. Try signing in instead.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters long.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Google sign-in was cancelled.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign-in popup. Allow popups and try again.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 'auth/operation-not-allowed':
+      return 'This sign-in method is not enabled in the Firebase console.';
+    default:
+      return 'Authentication failed. Please try again.';
+  }
+}
 
 export interface ConfirmedDemoBooking {
   bookingId: string;
@@ -318,20 +356,57 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
   confirmedBookings,
   onCancelBooking,
 }) => {
-  const [phoneOrEmail, setPhoneOrEmail] = useState('');
-  const [signedInUser, setSignedInUser] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState('');
+  const [authPending, setAuthPending] = useState(false);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+  }, []);
 
   if (!isOpen) return null;
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const displayName = currentUser?.displayName || currentUser?.email || '';
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneOrEmail || phoneOrEmail.trim().length < 4) {
-      setAuthError('Enter your email or 10-digit Indian mobile number to sign in to the demo session.');
-      return;
-    }
     setAuthError('');
-    setSignedInUser(phoneOrEmail.trim());
+    setAuthPending(true);
+    try {
+      if (authMode === 'signup') {
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      setAuthError(describeAuthError(error));
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError('');
+    setAuthPending(true);
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (error) {
+      setAuthError(describeAuthError(error));
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthError('');
+    await signOut(auth);
   };
 
   return (
@@ -348,7 +423,7 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
               DRIVER & HOST SESSION ACCOUNT
             </span>
             <h2 id="signin-modal-title" className="text-xl font-bold font-display text-[#22251F] mt-1">
-              {signedInUser ? `Signed in as ${signedInUser}` : 'Sign in to manage bookings'}
+              {currentUser ? `Signed in as ${displayName}` : 'Sign in to manage bookings'}
             </h2>
           </div>
           <button
@@ -361,36 +436,85 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
           </button>
         </div>
 
-        {!signedInUser ? (
-          <form onSubmit={handleSignIn} noValidate className="space-y-3 text-xs">
-            <div>
-              <label htmlFor="signin-identifier" className="block font-semibold text-[#22251F] mb-1">
-                Mobile Number or Email Address
-              </label>
-              <input
-                id="signin-identifier"
-                type="text"
-                value={phoneOrEmail}
-                onChange={(e) => setPhoneOrEmail(e.target.value)}
-                placeholder="e.g., +91 98450 12345 or driver@example.in"
-                className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
-              />
-              {authError && <p className="text-[#B42318] mt-1">{authError}</p>}
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] cursor-pointer"
-            >
-              Continue with Demo Account
-            </button>
-          </form>
-        ) : (
-          <div className="p-3.5 bg-[#173D2C] text-[#F6F3E9] rounded text-xs flex items-center justify-between">
-            <span>Active Demo Profile: {signedInUser}</span>
+        {!currentUser ? (
+          <div className="space-y-4 text-xs">
             <button
               type="button"
-              onClick={() => setSignedInUser(null)}
-              className="text-[#D8F36A] underline cursor-pointer"
+              onClick={handleGoogleSignIn}
+              disabled={authPending}
+              className="w-full py-2.5 px-4 font-semibold text-[#22251F] bg-white border border-[#D8D5CA] rounded hover:bg-[#EDE8D8] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-[#565A52]">
+              <span className="h-px flex-1 bg-[#D8D5CA]" />
+              <span>or</span>
+              <span className="h-px flex-1 bg-[#D8D5CA]" />
+            </div>
+
+            <form onSubmit={handleEmailAuth} noValidate className="space-y-3">
+              <div>
+                <label htmlFor="signin-email" className="block font-semibold text-[#22251F] mb-1">
+                  Email Address
+                </label>
+                <input
+                  id="signin-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="driver@example.in"
+                  className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="signin-password" className="block font-semibold text-[#22251F] mb-1">
+                  Password
+                </label>
+                <input
+                  id="signin-password"
+                  type="password"
+                  autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
+                />
+              </div>
+
+              {authError && <p className="text-[#B42318]">{authError}</p>}
+
+              <button
+                type="submit"
+                disabled={authPending}
+                className="w-full py-2.5 px-4 font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {authPending ? 'Please wait…' : authMode === 'signup' ? 'Create Account' : 'Sign In'}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
+                setAuthError('');
+              }}
+              className="text-[#173D2C] underline underline-offset-4 cursor-pointer"
+            >
+              {authMode === 'signup'
+                ? 'Already have an account? Sign in'
+                : 'New to ChargeShare? Create an account'}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3.5 bg-[#173D2C] text-[#F6F3E9] rounded text-xs flex items-center justify-between gap-3">
+            <span className="truncate">Signed in as {displayName}</span>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="text-[#D8F36A] underline cursor-pointer shrink-0"
             >
               Sign Out
             </button>
