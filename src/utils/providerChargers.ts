@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
+import type { ChargerListing } from '../data/demoChargers';
 
 export interface ChargerPhoto {
   name: string;
@@ -39,8 +40,58 @@ export interface ProviderCharger {
   spacePhoto: ChargerPhoto;
   createdAt: string;
   status: 'active' | 'inactive';
-  coordinates?: { lat: number; lng: number };
+  coordinates?: { lat: number; lng: number } | null;
   compatibleVehicles: string[];
+}
+
+export type PublicProviderCharger = ProviderCharger & { providerId: string };
+
+/** Converts the provider's real listing fields to the client marketplace view. */
+export function toClientListing(charger: PublicProviderCharger): ChargerListing {
+  // Older provider forms wrote this same Bangalore point for every listing.
+  const rawCoordinates = charger.coordinates;
+  const coordinates = rawCoordinates
+    && !(rawCoordinates.lat === 12.9716 && rawCoordinates.lng === 77.5946)
+    ? rawCoordinates
+    : null;
+  const pricePerKwh = charger.price;
+  const availableNow = charger.status === 'active';
+  return {
+    id: charger.id,
+    providerId: charger.providerId,
+    photoUrl: charger.chargerPhoto.url || undefined,
+    title: charger.title,
+    locality: charger.locality,
+    city: charger.city,
+    addressCue: charger.addressLine,
+    distanceKm: null,
+    connector: charger.connector,
+    powerKw: charger.powerKw,
+    pricePerKwh,
+    pricingType: charger.pricingType,
+    parkingType: '',
+    operatingHours: `${charger.availableFrom} – ${charger.availableTo}`,
+    availableFrom: charger.availableFrom,
+    availableTo: charger.availableTo,
+    availableNow,
+    availabilityLabel: availableNow ? `${charger.availableFrom} – ${charger.availableTo}` : 'Paused by host',
+    hostName: 'Community host',
+    hostTenure: '',
+    rating: 0,
+    reviewCount: 0,
+    completedSessions: 0,
+    hardwareModel: '',
+    cableLengthMeters: null,
+    accessNotes: charger.accessNotes,
+    compatibleVehicles: charger.compatibleVehicles,
+    coordinates: coordinates
+      ? { lat: String(coordinates.lat), lng: String(coordinates.lng) }
+      : { lat: '', lng: '' },
+    visualTheme: 'driveway-canopy',
+    slots: availableNow
+      ? [{ id: `${charger.id}-provider-window`, label: 'Provider availability', window: `${charger.availableFrom} – ${charger.availableTo}`, available: true }]
+      : [],
+  };
 }
 
 const EMPTY_PHOTO: ChargerPhoto = { name: '', url: '', publicId: '' };
@@ -100,13 +151,44 @@ export function subscribeToProviderChargers(
   );
 }
 
+/** Streams provider listings published for driver discovery. */
+export function subscribeToPublicChargers(
+  onChargers: (chargers: PublicProviderCharger[]) => void,
+  onError: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'public_chargers'),
+    (snapshot) => onChargers(snapshot.docs
+      .map((docSnapshot) => ({
+        ...toProviderCharger(docSnapshot),
+        providerId: String(docSnapshot.data().providerId ?? ''),
+      }))
+      .filter((charger) => charger.status === 'active' && charger.providerId)),
+    (error) => onError(error.message)
+  );
+}
+
+/** Publishes an existing provider record to the collection used by discovery. */
+export async function publishProviderCharger(
+  providerId: string,
+  charger: ProviderCharger
+): Promise<void> {
+  await setDoc(doc(db, 'public_chargers', charger.id), {
+    ...charger,
+    id: charger.id,
+    providerId,
+  });
+}
+
 /** Persists a charger under the provider's own document. */
 export async function saveProviderCharger(
   providerId: string,
   charger: NewProviderCharger
 ): Promise<string> {
   const reference = doc(chargersCollection(providerId));
-  await setDoc(reference, { ...charger, createdAt: new Date().toISOString() });
+  const record = { ...charger, createdAt: new Date().toISOString() };
+  await setDoc(reference, record);
+  await publishProviderCharger(providerId, { ...record, id: reference.id });
   return reference.id;
 }
 
@@ -118,6 +200,7 @@ export async function updateProviderCharger(
 ): Promise<void> {
   const reference = doc(db, 'providers', providerId, 'chargers', chargerId);
   await setDoc(reference, updates, { merge: true });
+  await setDoc(doc(db, 'public_chargers', chargerId), { ...updates, id: chargerId, providerId }, { merge: true });
 }
 
 /** Toggles the availability status of a charger. */

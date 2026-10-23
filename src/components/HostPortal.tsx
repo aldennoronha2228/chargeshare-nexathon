@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { signOut } from 'firebase/auth';
 import {
@@ -40,6 +40,7 @@ import { AddChargerForm } from './AddChargerForm';
 import {
   saveProviderCharger,
   subscribeToProviderChargers,
+  publishProviderCharger,
   toggleChargerStatus,
   updateProviderCharger,
   type ProviderCharger,
@@ -88,6 +89,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
   const [chargers, setChargers] = useState<ProviderCharger[]>([]);
   const [chargersLoading, setChargersLoading] = useState(true);
   const [chargersError, setChargersError] = useState('');
+  const publicIndexBackfilled = useRef(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState('');
@@ -128,6 +130,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
 
   // Live view of this provider's chargers in Firestore
   useEffect(() => {
+    publicIndexBackfilled.current = false;
     setChargersLoading(true);
     setChargersError('');
     const unsubscribe = subscribeToProviderChargers(
@@ -135,6 +138,11 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
       (next) => {
         setChargers(next);
         setChargersLoading(false);
+        if (!publicIndexBackfilled.current) {
+          publicIndexBackfilled.current = true;
+          void Promise.all(next.map((charger) => publishProviderCharger(user.uid, charger)))
+            .catch((error) => console.error('Could not publish provider chargers for discovery', error));
+        }
       },
       (message) => {
         setChargersError(message);

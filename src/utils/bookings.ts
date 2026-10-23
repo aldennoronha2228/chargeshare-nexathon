@@ -1,5 +1,6 @@
 import {
   collection,
+  addDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -17,6 +18,8 @@ export type BookingStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 
 export interface Booking {
   id: string;
   chargerId: string;
+  chargerTitle?: string;
+  chargerLocality?: string;
   providerId: string;
   userId: string;
   userName: string;
@@ -33,11 +36,43 @@ export interface Booking {
   createdAt: string;
 }
 
+export interface NewBookingRequest {
+  chargerId: string;
+  chargerTitle: string;
+  chargerLocality: string;
+  providerId: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  vehicleName: string;
+  vehicleNumber: string;
+  startTime: string;
+  endTime: string;
+  totalKwh: number;
+  totalPrice: number;
+}
+
+export async function createBookingRequest(input: NewBookingRequest): Promise<string> {
+  const platformFee = input.totalPrice * 0.1;
+  const { userPhoto, ...booking } = input;
+  const reference = await addDoc(collection(db, 'bookings'), {
+    ...booking,
+    ...(userPhoto ? { userPhoto } : {}),
+    status: 'pending',
+    platformFee,
+    providerEarnings: input.totalPrice - platformFee,
+    createdAt: new Date().toISOString(),
+  });
+  return reference.id;
+}
+
 function toBooking(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
   const data = snapshot.data();
   return {
     id: snapshot.id,
     chargerId: data.chargerId,
+    chargerTitle: data.chargerTitle,
+    chargerLocality: data.chargerLocality,
     providerId: data.providerId,
     userId: data.userId,
     userName: data.userName,
@@ -70,6 +105,23 @@ export function subscribeToProviderBookings(
   return onSnapshot(
     q,
     (snapshot) => onBookings(snapshot.docs.map(toBooking)),
+    (error) => onError(error.message)
+  );
+}
+
+/** Streams bookings created by the signed-in driver. */
+export function subscribeToUserBookings(
+  userId: string,
+  onBookings: (bookings: Booking[]) => void,
+  onError: (message: string) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'bookings'),
+    where('userId', '==', userId)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => onBookings(snapshot.docs.map(toBooking).sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
     (error) => onError(error.message)
   );
 }

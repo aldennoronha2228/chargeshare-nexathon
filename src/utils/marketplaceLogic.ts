@@ -73,7 +73,7 @@ export function filterChargers(
       return false;
     }
 
-    if (charger.pricePerKwh > criteria.maxPricePerKwh) {
+    if (charger.pricingType !== 'per_session' && charger.pricePerKwh > criteria.maxPricePerKwh) {
       return false;
     }
 
@@ -81,7 +81,10 @@ export function filterChargers(
       return false;
     }
 
-    if (charger.distanceKm > criteria.maxDistanceKm) {
+    if (charger.distanceKm === null && criteria.maxDistanceKm < 25) {
+      return false;
+    }
+    if (charger.distanceKm !== null && charger.distanceKm > criteria.maxDistanceKm) {
       return false;
     }
 
@@ -269,8 +272,11 @@ export type SortKey = 'distance' | 'price' | 'speed' | 'rating';
 export function sortChargers(chargers: ChargerListing[], by: SortKey): ChargerListing[] {
   const sorted = [...chargers];
   switch (by) {
-    case 'distance': return sorted.sort((a, b) => a.distanceKm - b.distanceKm);
-    case 'price':    return sorted.sort((a, b) => a.pricePerKwh - b.pricePerKwh);
+    case 'distance': return sorted.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    case 'price':    return sorted.sort((a, b) => {
+      if (a.pricingType !== b.pricingType) return a.pricingType === 'per_kwh' ? -1 : 1;
+      return a.pricePerKwh - b.pricePerKwh;
+    });
     case 'speed':    return sorted.sort((a, b) => b.powerKw - a.powerKw);
     case 'rating':   return sorted.sort((a, b) => b.rating - a.rating);
     default:         return sorted;

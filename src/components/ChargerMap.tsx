@@ -60,9 +60,9 @@ function markerVisual(charger: ChargerListing, selected: boolean): { cssText: st
   const available = charger.availableNow;
   const hasPrice = Number.isFinite(charger.pricePerKwh) && charger.pricePerKwh > 0;
 
-  const background = selected ? '#173D2C' : available ? '#D8F36A' : '#EDE8D8';
-  const foreground = selected ? '#D8F36A' : available ? '#173D2C' : '#565A52';
-  const border = selected ? '3px solid #D8F36A' : '2px solid #173D2C';
+  const background = selected ? '#111111' : '#FFFFFF';
+  const foreground = selected ? '#FFFFFF' : available ? '#1C1B1B' : '#747878';
+  const border = selected ? '2px solid #FFFFFF' : '1px solid #C4C7C7';
 
   const cssText = `
     display: inline-flex;
@@ -73,7 +73,7 @@ function markerVisual(charger: ChargerListing, selected: boolean): { cssText: st
     background: ${background};
     color: ${foreground};
     border: ${border};
-    box-shadow: 0 3px 10px rgba(0,0,0,0.28);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-weight: 800;
     font-size: ${selected ? '13px' : '11px'};
@@ -85,7 +85,7 @@ function markerVisual(charger: ChargerListing, selected: boolean): { cssText: st
   `;
 
   const html = hasPrice
-    ? `₹${charger.pricePerKwh}`
+    ? `${selected && available ? '<span style="width:6px;height:6px;border-radius:50%;background:#22a06b;display:inline-block"></span>' : ''}₹${charger.pricePerKwh}`
     : `<svg xmlns="http://www.w3.org/2000/svg" width="${selected ? 15 : 13}" height="${selected ? 15 : 13}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
 
   return { cssText, html };
@@ -104,10 +104,20 @@ function createMarkerElement(charger: ChargerListing, selected: boolean): HTMLDi
 
 // ─── Popup content ────────────────────────────────────────────────────────────
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character] ?? character);
+}
+
 function buildPopupHTML(charger: ChargerListing): string {
   const avail = charger.availableNow
-    ? `<span style="background:#D8F36A;color:#173D2C;font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">● Available</span>`
-    : `<span style="background:#EDE8D8;color:#565A52;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">○ Busy</span>`;
+    ? `<span style="background:#D8F36A;color:#173D2C;font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">● Active</span>`
+    : `<span style="background:#EDE8D8;color:#565A52;font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;">○ Paused</span>`;
 
   const rating = charger.rating
     ? `<span style="font-size:11px;color:#565A52;">★ ${charger.rating.toFixed(1)} (${charger.reviewCount ?? 0})</span>`
@@ -116,10 +126,10 @@ function buildPopupHTML(charger: ChargerListing): string {
   return `
     <div style="font-family:'Plus Jakarta Sans',sans-serif;min-width:200px;max-width:240px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:6px;">
-        <div style="font-weight:700;font-size:13px;color:#22251F;line-height:1.3;">${charger.title}</div>
+        <div style="font-weight:700;font-size:13px;color:#22251F;line-height:1.3;">${escapeHtml(charger.title)}</div>
         ${avail}
       </div>
-      <div style="font-size:11px;color:#565A52;margin-bottom:8px;">${charger.locality}, ${charger.city}</div>
+      <div style="font-size:11px;color:#565A52;margin-bottom:8px;">${escapeHtml(charger.locality)}, ${escapeHtml(charger.city)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
         <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
           <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Power</div>
@@ -127,15 +137,15 @@ function buildPopupHTML(charger: ChargerListing): string {
         </div>
         <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
           <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Price</div>
-          <div style="font-size:12px;font-weight:700;color:#173D2C;font-family:monospace;">₹${charger.pricePerKwh}/kWh</div>
+          <div style="font-size:12px;font-weight:700;color:#173D2C;font-family:monospace;">₹${charger.pricePerKwh}/${charger.pricingType === 'per_session' ? 'session' : 'kWh'}</div>
         </div>
         <div style="background:#EDE8D8;border-radius:4px;padding:4px 6px;text-align:center;">
           <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Dist</div>
-          <div style="font-size:12px;font-weight:700;color:#22251F;font-family:monospace;">${charger.distanceKm} km</div>
+          <div style="font-size:12px;font-weight:700;color:#22251F;font-family:monospace;">${charger.distanceKm === null ? '—' : `${charger.distanceKm} km`}</div>
         </div>
       </div>
       <div style="font-size:11px;color:#173D2C;background:#F6F3E9;border:1px solid #D8D5CA;border-radius:4px;padding:3px 7px;display:inline-block;margin-bottom:8px;">
-        ${charger.connector}
+        ${escapeHtml(charger.connector)}
       </div>
       ${rating ? `<div style="margin-bottom:8px;">${rating}</div>` : ''}
       <div data-charger-id="${charger.id}" style="width:100%;background:#173D2C;color:#D8F36A;border:none;border-radius:6px;padding:7px 0;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">
@@ -153,6 +163,7 @@ interface ChargerMapProps {
   selectedChargerId: string | null;
   onSelectCharger: (charger: ChargerListing) => void;
   onViewDetails: (charger: ChargerListing) => void;
+  onUserLocation?: (location: { lat: number; lng: number }) => void;
   /** Height class — defaults to h-[420px] on mobile, h-[520px] on desktop */
   className?: string;
 }
@@ -164,6 +175,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   selectedChargerId,
   onSelectCharger,
   onViewDetails,
+  onUserLocation,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -364,6 +376,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
           zoom: 13,
           duration: 800,
         });
+        onUserLocation?.({ lat: latitude, lng: longitude });
         // Add a "you are here" marker
         const el = document.createElement('div');
         el.style.cssText = `
@@ -389,11 +402,11 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       },
       { enableHighAccuracy: false, timeout: 10000 },
     );
-  }, []);
+  }, [onUserLocation]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className={`relative w-full overflow-hidden rounded border-2 border-[#D8D5CA] ${className}`}>
+    <div className={`cs-map-root relative w-full overflow-hidden rounded border-2 border-[#D8D5CA] ${className}`}>
       {/* Map container — must have explicit height */}
       <div
         ref={containerRef}

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { DEMO_CHARGERS, type ChargerListing } from './data/demoChargers';
+import type { ChargerListing } from './data/demoChargers';
 import { ORDERED_CHAPTERS, type StoryChapterId } from './three/ScrollSceneController';
 import type { ChargerVisualState } from './three/ChargerModel';
 import { Navbar } from './components/Navbar';
@@ -19,8 +19,8 @@ import { AuthPage } from './components/AuthPage';
 import {
   SignInAndBookingsModal,
   InfoPolicyModal,
-  type ConfirmedDemoBooking,
 } from './components/InteractiveModals';
+import { cancelBooking, createBookingRequest, subscribeToUserBookings, type Booking } from './utils/bookings';
 import { auth } from './firebase';
 import {
   ROUTES,
@@ -36,6 +36,8 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { FindChargersPage } from './components/FindChargersPage';
 import { ChargerDetailDrawer } from './components/ChargerDetailDrawer';
 import type { ProfileMenuView } from './components/ProfileMenu';
+import { subscribeToPublicChargers, toClientListing } from './utils/providerChargers';
+import { subscribeToPublicReviews, type Review } from './utils/reviews';
 
 const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
   discover: 'chapter-discover',
@@ -68,9 +70,12 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
 
-  const [chargers, setChargers] = useState<ChargerListing[]>(DEMO_CHARGERS);
+  const [chargers, setChargers] = useState<ChargerListing[]>([]);
+  const [chargersLoading, setChargersLoading] = useState(true);
+  const [chargersError, setChargersError] = useState('');
   const [selectedChargerIndex, setSelectedChargerIndex] = useState<number>(0);
-  const [confirmedBookings, setConfirmedBookings] = useState<ConfirmedDemoBooking[]>([]);
+  const [driverBookings, setDriverBookings] = useState<Booking[]>([]);
+  const [publicReviews, setPublicReviews] = useState<Review[]>([]);
 
   // 3D Stage & Narrative Chapter State
   const [activeChapter, setActiveChapter] = useState<StoryChapterId>('discover');
@@ -86,13 +91,38 @@ export default function App() {
 
   // Keep the route — and the intended destination — in sync with browser navigation
   useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
     const syncFromLocation = () => {
       setRoute(readAppRoute());
       setLoginDestination(readSafeRedirectPath() ?? LOGIN_FALLBACK_DESTINATION);
     };
     window.addEventListener('popstate', syncFromLocation);
-    return () => window.removeEventListener('popstate', syncFromLocation);
+    return () => {
+      window.removeEventListener('popstate', syncFromLocation);
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
   }, []);
+
+  // Browser history can otherwise restore a previous route's deep scroll offset,
+  // making Home or Login appear blank when returning to them.
+  useEffect(() => {
+    if (route === 'landing' && pendingSectionId) return;
+    window.scrollTo(0, 0);
+  }, [route]);
+
+  useEffect(() => subscribeToPublicReviews(
+    setPublicReviews,
+    (message) => console.error('Could not load charger reviews:', message)
+  ), []);
+
+  const chargersWithReviews = useMemo(() => chargers.map((charger) => {
+    const matchingReviews = publicReviews.filter((review) => review.chargerId === charger.id);
+    const rating = matchingReviews.length
+      ? matchingReviews.reduce((sum, review) => sum + review.rating, 0) / matchingReviews.length
+      : 0;
+    return { ...charger, rating, reviewCount: matchingReviews.length };
+  }), [chargers, publicReviews]);
 
   // Single Firebase session listener shared by the whole app
   useEffect(() => {
@@ -108,6 +138,34 @@ export default function App() {
    * freshly signed-in user from being bounced back to the login screen.
    */
   const effectiveUser = user ?? auth.currentUser;
+
+  useEffect(() => {
+    if (!effectiveUser) {
+      setDriverBookings([]);
+      return;
+    }
+    return subscribeToUserBookings(
+      effectiveUser.uid,
+      setDriverBookings,
+      (message) => console.error('Could not load driver bookings:', message)
+    );
+  }, [effectiveUser?.uid]);
+
+  // Client discovery uses the public projection written by provider listings.
+  useEffect(() => {
+    setChargersLoading(true);
+    setChargersError('');
+    return subscribeToPublicChargers(
+      (listings) => {
+        setChargers(listings.map(toClientListing));
+        setChargersLoading(false);
+      },
+      (message) => {
+        setChargersError(message);
+        setChargersLoading(false);
+      }
+    );
+  }, []);
 
   // A signed-in user should never be left sitting on the login page.
   // `replaceTo` keeps the login URL out of history so Back does not bounce.
@@ -125,7 +183,7 @@ export default function App() {
   // Drop user-specific session state as soon as the account signs out
   useEffect(() => {
     if (user) return;
-    setConfirmedBookings([]);
+    setDriverBookings([]);
     setSignInModalOpen(false);
     setEditProfileOpen(false);
     setDetailCharger(null);
@@ -212,14 +270,11 @@ export default function App() {
     setSelectedChargerIndex(index);
   };
 
-  const handleCancelBooking = (bookingId: string) => {
-    setConfirmedBookings((prev) => prev.filter((b) => b.bookingId !== bookingId));
+  const handleCancelBooking = async (bookingId: string) => {
+    await cancelBooking(bookingId);
   };
 
-  const handleAddHostListing = (newCharger: ChargerListing) => {
-    setChargers((prev) => [newCharger, ...prev]);
-    setSelectedChargerIndex(0);
-  };
+  const activeReservationCount = driverBookings.filter((booking) => ['pending', 'accepted'].includes(booking.status)).length;
 
   const openProviderPortal = useCallback(() => {
     navigateTo(effectiveUser ? ROUTES.provider : ROUTES.login);
@@ -270,19 +325,21 @@ export default function App() {
           onOpenSignInModal={() => setSignInModalOpen(true)}
           onOpenProfile={openProfile}
           onNavigateSection={handleNavigateToSection}
-          activeReservationCount={confirmedBookings.length}
+          activeReservationCount={activeReservationCount}
         />
       )}
 
       <main className="flex-1 relative">
         {isFindChargersRoute ? (
           <FindChargersPage
-            chargers={chargers}
+            chargers={chargersWithReviews}
+            chargersLoading={chargersLoading}
+            chargersError={chargersError}
             user={effectiveUser}
             onOpenDetail={(charger) => setDetailCharger(charger)}
             onOpenProfile={openProfile}
             onOpenBookings={() => setSignInModalOpen(true)}
-            activeReservationCount={confirmedBookings.length}
+            activeReservationCount={activeReservationCount}
           />
         ) : (
           <>
@@ -299,7 +356,7 @@ export default function App() {
 
             {/* CHAPTER 2 — CONNECT */}
             <ChapterConnectSection
-              chargers={chargers}
+              chargers={chargersWithReviews}
               selectedChargerIndex={selectedChargerIndex}
               onSelectNode={handleSelectNodeInConnect}
               onExploreClick={scrollToBook}
@@ -329,7 +386,7 @@ export default function App() {
       <SignInAndBookingsModal
         isOpen={signInModalOpen}
         onClose={() => setSignInModalOpen(false)}
-        confirmedBookings={confirmedBookings}
+        confirmedBookings={driverBookings}
         onCancelBooking={handleCancelBooking}
         onOpenEditProfile={() => { setSignInModalOpen(false); openProfile('view'); }}
       />
@@ -345,9 +402,26 @@ export default function App() {
       <ChargerDetailDrawer
         charger={detailCharger}
         onClose={() => setDetailCharger(null)}
-        onBook={() => {
-          setDetailCharger(null);
-          setSignInModalOpen(true);
+        onBook={async (charger, request) => {
+          if (!effectiveUser || !charger.providerId) throw new Error('Sign in and choose an active provider listing to book.');
+          const totalPrice = charger.pricingType === 'per_session'
+            ? charger.pricePerKwh
+            : charger.pricePerKwh * request.totalKwh;
+          await createBookingRequest({
+            chargerId: charger.id,
+            chargerTitle: charger.title,
+            chargerLocality: charger.locality,
+            providerId: charger.providerId,
+            userId: effectiveUser.uid,
+            userName: effectiveUser.displayName || effectiveUser.email || 'ChargeShare driver',
+            ...(effectiveUser.photoURL ? { userPhoto: effectiveUser.photoURL } : {}),
+            vehicleName: request.vehicleName,
+            vehicleNumber: request.vehicleNumber,
+            startTime: request.startTime,
+            endTime: request.endTime,
+            totalKwh: request.totalKwh,
+            totalPrice,
+          });
         }}
       />
     </div>

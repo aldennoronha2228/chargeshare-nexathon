@@ -10,10 +10,8 @@
  *   • <ProfileMenu>                      → the existing Firebase-backed account control
  *   • onOpenDetail                       → the existing ChargerDetailDrawer / booking flow
  *
- * Data still comes from the same source as the rest of the app (App state seeded with
- * the existing listings), so no second search system or data collection is introduced.
- * Fields the model does not carry (photo, amenities, favourites, notifications) are
- * handled explicitly instead of being faked — see the comments at each usage site.
+ * Listings and booking actions are connected to provider records and Firestore.
+ * Optional listing details remain absent until a provider supplies them.
  */
 
 import React, {
@@ -24,7 +22,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import './FindChargersPage.css';
 import {
+  Activity,
   AlertCircle,
   Bell,
   CalendarCheck,
@@ -34,7 +34,6 @@ import {
   Heart,
   List,
   Map as MapIcon,
-  MapPin,
   Navigation,
   RotateCcw,
   Search,
@@ -43,7 +42,6 @@ import {
   Star,
   UserRound,
   X,
-  Zap,
 } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { ChargerListing, ConnectorType, IndianCity } from '../data/demoChargers';
@@ -107,14 +105,9 @@ const FAVOURITES_STORAGE_PREFIX = 'chargeshare:favourites';
 /** Required display fields — used to surface records that are missing data. */
 function getMissingFields(c: ChargerListing): string[] {
   const required: Array<keyof ChargerListing> = [
-    'id', 'title', 'locality', 'city', 'connector', 'powerKw', 'pricePerKwh', 'distanceKm',
+    'id', 'title', 'locality', 'city', 'connector', 'powerKw', 'pricePerKwh',
   ];
   return required.filter((k) => c[k] === undefined || c[k] === null || c[k] === '');
-}
-
-/** The seed listings are simulated; the UI says so rather than implying live inventory. */
-function isDevSeedRecord(c: ChargerListing): boolean {
-  return /^cs-(blr|pun|mum|del|hyd|maa)-/.test(c.id);
 }
 
 /** Directions deep-link built from the listing's real, parsed coordinates. */
@@ -147,8 +140,16 @@ function availabilityValue(charger: ChargerListing): string {
   return (
     nextSlot?.window ??
     charger.availabilityLabel ??
-    (charger.availableNow ? 'Available now' : 'Currently busy')
+    (charger.availableNow ? 'Accepting requests' : 'Paused by host')
   );
+}
+
+function tariffLabel(charger: ChargerListing): string {
+  return `₹${charger.pricePerKwh}/${charger.pricingType === 'per_session' ? 'session' : 'kWh'}`;
+}
+
+function distanceLabel(charger: ChargerListing): string {
+  return charger.distanceKm === null ? 'Distance unavailable' : `${charger.distanceKm} km`;
 }
 
 function readFavourites(storageKey: string): string[] {
@@ -216,10 +217,11 @@ const AvailabilityBadge: React.FC<{ available: boolean; className?: string }> = 
 }) => (
   <span
     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wide ${
-      available ? 'bg-[#D8F36A] text-[#173D2C]' : 'bg-[#EDE8D8] text-[#565A52]'
+      available ? 'bg-[#F6F3F2] text-[#1C1B1B]' : 'bg-[#F6F3F2] text-[#5E5F5C]'
     } ${className}`}
   >
-    {available ? '● Available' : '○ Busy'}
+    <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${available ? 'bg-emerald-600' : 'bg-[#9A9A96]'}`} />
+    {available ? 'Accepting requests' : 'Paused'}
   </span>
 );
 
@@ -260,7 +262,7 @@ const Chip: React.FC<{
   leading?: React.ReactNode;
 }> = ({ label, active, onClick, onClear, leading }) => (
   <span
-    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+    className={`cs-quick-filter inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
       active
         ? 'border-[#173D2C] bg-[#173D2C] text-[#D8F36A]'
         : 'border-[#D8D5CA] bg-white text-[#22251F] hover:border-[#173D2C]'
@@ -340,84 +342,71 @@ const PrimaryChargerCard: React.FC<CardProps> = ({
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl border bg-white transition-shadow ${
-        isSelected ? 'border-[#173D2C] shadow-md ring-2 ring-[#D8F36A]' : 'border-[#D8D5CA] shadow-sm'
+      className={`cs-charger-card cs-charger-card--primary rounded-xl border bg-white transition-shadow ${
+        isSelected ? 'border-black ring-1 ring-black/10' : 'border-[#E5E2E1]'
       }`}
-      aria-label={`${charger.title}, ${charger.powerKw} kW ${charger.connector}, ₹${charger.pricePerKwh} per kWh`}
+      aria-label={`${charger.title}, ${charger.powerKw} kW ${charger.connector}, ${tariffLabel(charger)}`}
     >
-      {/* Thumbnail — the model has no photo field, so the existing illustration is the fallback */}
-      <div className="relative h-40 overflow-hidden bg-[#173D2C]">
-        <ChargerThumbPlate
-          theme={charger.visualTheme ?? 'driveway-canopy'}
-          powerKw={charger.powerKw ?? 0}
-          connector={charger.connector ?? ''}
-        />
-        <AvailabilityBadge available={charger.availableNow} className="absolute left-2.5 top-2.5" />
-        <FavouriteButton
-          active={isFavourite}
-          label={charger.title}
-          onToggle={onToggleFavourite}
-          className="absolute right-2.5 top-2.5"
-        />
+      <div className="flex items-center justify-between gap-3 border-b border-[#E5E2E1] px-4 py-3">
+        <div className="flex items-center gap-2 text-[11px] text-[#5E5F5C]">
+          <span className="rounded bg-black px-2 py-1 font-label-caps text-[10px] font-semibold uppercase tracking-wider text-white">Featured bay</span>
+          <span className="font-mono">#{charger.id.slice(-3)}</span>
+        </div>
+        <AvailabilityBadge available={charger.availableNow} className="!bg-transparent !px-0 !text-[#1C1B1B]" />
       </div>
 
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate font-display text-[15px] font-bold leading-snug text-[#22251F]">
-              {charger.title || <span className="italic text-[#888]">Unnamed charger</span>}
-            </h3>
-            <p className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#565A52]">
-              <MapPin className="h-3 w-3 shrink-0" />
-              {[charger.locality, charger.city].filter(Boolean).join(', ') || '—'}
-            </p>
-            {charger.addressCue && (
-              <p className="mt-0.5 truncate text-[11px] text-[#888]">{charger.addressCue}</p>
-            )}
+      <div className="space-y-3.5 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E5E2E1] bg-[#F6F3F2]">
+              {charger.photoUrl ? <img src={charger.photoUrl} alt={`${charger.title} charger`} className="h-full w-full object-cover" /> : <ChargerThumbPlate theme={charger.visualTheme ?? 'driveway-canopy'} powerKw={charger.powerKw ?? 0} connector={charger.connector ?? ''} />}
+              <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1 text-[8px] font-mono font-bold text-white">{charger.powerKw}kW</span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-display text-sm font-bold leading-snug text-[#1C1B1B]">
+                {charger.title || <span className="italic text-[#888]">Unnamed charger</span>}
+              </h3>
+              <p className="mt-0.5 truncate text-[11px] text-[#5E5F5C]">
+                {[charger.locality, charger.distanceKm === null ? '' : `${charger.distanceKm} km`].filter(Boolean).join(' · ')}
+              </p>
+              <p className="mt-0.5 truncate font-label-caps text-[9px] uppercase tracking-wider text-[#747878]">{charger.hostName}</p>
+            </div>
           </div>
-          <span className="shrink-0 rounded-lg border border-[#D8D5CA] bg-[#EDE8D8] px-2 py-1 font-mono text-[11px] font-bold text-[#173D2C]">
-            {charger.distanceKm} km
-          </span>
+          <div className="shrink-0 text-right">
+            <span className="block font-display text-base font-bold tracking-tight text-[#1C1B1B]">₹{charger.pricePerKwh}</span>
+            <span className="font-label-caps text-[9px] uppercase tracking-wider text-[#747878]">{charger.pricingType === 'per_session' ? 'per session' : 'per kWh'}</span>
+          </div>
         </div>
 
-        {/* Host trust row — rating, review count and real completed-session history */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-[#565A52]">
+        <div className="flex items-center gap-2 text-[11px] text-[#5E5F5C]">
           {charger.rating > 0 && (
             <span className="inline-flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-[#F0A500] text-[#F0A500]" />
-              <span className="font-mono font-bold text-[#22251F]">{charger.rating.toFixed(1)}</span>
-              ({charger.reviewCount ?? 0})
+              <Star className="h-3 w-3 fill-current text-[#1C1B1B]" />
+              <span className="font-mono font-bold text-[#1C1B1B]">{charger.rating.toFixed(1)}</span>
             </span>
           )}
-          <span className="inline-flex items-center gap-1 rounded-full border border-[#D8D5CA] bg-[#F6F3E9] px-2 py-0.5 font-semibold text-[#173D2C]">
-            <ShieldCheck className="h-3 w-3" />
-            {charger.completedSessions} sessions completed
+          <span className="truncate">{charger.reviewCount ? `${charger.reviewCount} reviews` : 'No reviews yet'}</span>
+          <span className="ml-auto inline-flex items-center gap-1">
+            <FavouriteButton active={isFavourite} label={charger.title} onToggle={onToggleFavourite} size="sm" />
           </span>
         </div>
 
-        {/* SPEED / TARIFF / AVAILABILITY */}
-        <div className="grid grid-cols-3 gap-2">
-          <SpecTile label="Speed" value={`${charger.powerKw} kW`} />
-          <SpecTile label="Tariff" value={`₹${charger.pricePerKwh}/kWh`} />
-          <SpecTile label="Availability" value={availabilityValue(charger)} compact />
+        <div className="grid grid-cols-3 divide-x divide-[#E5E2E1] rounded-lg border border-[#E5E2E1] bg-[#F6F3F2] py-2.5">
+          <div className="px-2.5"><div className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Max speed</div><div className="mt-1 font-mono text-xs font-semibold text-[#1C1B1B]">{charger.powerKw} kW</div><div className="text-[10px] text-[#747878]">{charger.connector}</div></div>
+          <div className="px-2.5"><div className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Tariff</div><div className="mt-1 font-mono text-xs font-semibold text-[#1C1B1B]">{tariffLabel(charger)}</div><div className="text-[10px] text-[#747878]">Provider set</div></div>
+          <div className="px-2.5"><div className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Status</div><div className="mt-1 truncate font-mono text-xs font-semibold text-[#1C1B1B]">{charger.availableNow ? 'Active' : 'Paused'}</div><div className="truncate text-[10px] text-[#747878]">{availabilityValue(charger)}</div></div>
         </div>
 
-        {/* Host info row */}
-        <div className="rounded-xl border border-[#D8D5CA] bg-[#F6F3E9] p-3">
-          <p className="truncate text-[12px] font-bold text-[#22251F]">
-            {charger.hostName} <span className="font-normal text-[#565A52]">· {charger.hostTenure}</span>
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-[#565A52]">
-            {charger.parkingType} · {charger.accessNotes}
-          </p>
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-[#5E5F5C]">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[#1C1B1B]" />
+          <span className="truncate">{[charger.parkingType, charger.accessNotes].filter(Boolean).join(' · ')}</span>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-[1fr_44px] gap-2">
           <button
             type="button"
             onClick={onOpenDetails}
-            className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#173D2C] bg-[#D8F36A] px-4 py-2.5 text-[13px] font-bold text-[#173D2C] transition-colors hover:bg-[#c9e854] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded bg-black px-4 text-[11px] font-semibold uppercase tracking-wider text-white transition-colors hover:bg-[#333] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
           >
             Book Slot &amp; Details
             <ChevronRight className="h-4 w-4" />
@@ -430,7 +419,7 @@ const PrimaryChargerCard: React.FC<CardProps> = ({
               rel="noreferrer"
               aria-label={`Get directions to ${charger.title}`}
               title="Get directions"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#D8D5CA] bg-white text-[#173D2C] transition-colors hover:border-[#173D2C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+              className="inline-flex h-10 w-11 shrink-0 items-center justify-center rounded border border-[#E5E2E1] bg-white text-[#1C1B1B] transition-colors hover:border-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
             >
               <Navigation className="h-4 w-4" />
             </a>
@@ -438,7 +427,7 @@ const PrimaryChargerCard: React.FC<CardProps> = ({
             <span
               aria-hidden="true"
               title="Directions unavailable — no coordinates on this listing"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#D8D5CA] bg-[#EDE8D8] text-[#AAA]"
+              className="inline-flex h-10 w-11 shrink-0 items-center justify-center rounded border border-[#E5E2E1] bg-[#F6F3F2] text-[#AAA]"
             >
               <Navigation className="h-4 w-4" />
             </span>
@@ -468,7 +457,7 @@ const CompactChargerCard: React.FC<CardProps> = ({
 
   return (
     <article
-      className={`relative rounded-2xl border bg-white p-3 transition-shadow ${
+      className={`cs-charger-card cs-charger-card--compact relative rounded-xl border bg-white p-3 transition-shadow ${
         isSelected ? 'border-[#173D2C] shadow-md ring-2 ring-[#D8F36A]' : 'border-[#D8D5CA] shadow-sm'
       }`}
     >
@@ -479,11 +468,11 @@ const CompactChargerCard: React.FC<CardProps> = ({
         aria-label={`View details for ${charger.title}`}
       >
         <span className="h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-[#173D2C]">
-          <ChargerThumbPlate
+          {charger.photoUrl ? <img src={charger.photoUrl} alt={`${charger.title} charger`} className="h-full w-full object-cover" /> : <ChargerThumbPlate
             theme={charger.visualTheme ?? 'driveway-canopy'}
             powerKw={charger.powerKw ?? 0}
             connector={charger.connector ?? ''}
-          />
+          />}
         </span>
 
         <span className="min-w-0 flex-1">
@@ -494,11 +483,11 @@ const CompactChargerCard: React.FC<CardProps> = ({
             {[charger.locality, charger.city].filter(Boolean).join(', ')}
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] font-semibold text-[#173D2C]">
-            <span>₹{charger.pricePerKwh}/kWh</span>
+            <span>{tariffLabel(charger)}</span>
             <span aria-hidden="true" className="text-[#D8D5CA]">·</span>
             <span>{charger.powerKw} kW</span>
             <span aria-hidden="true" className="text-[#D8D5CA]">·</span>
-            <span>{charger.distanceKm} km</span>
+            <span>{distanceLabel(charger)}</span>
           </span>
           <span className="mt-1 block truncate text-[11px] text-[#565A52]">{charger.connector}</span>
         </span>
@@ -537,7 +526,7 @@ const MiniChargerRow: React.FC<CardProps> = ({
   const directions = directionsUrl(charger);
 
   return (
-    <div className="flex items-center gap-2.5 rounded-2xl border border-[#D8D5CA] bg-white p-2.5 shadow-sm">
+    <div className="cs-charger-card cs-charger-card--mini flex items-center gap-2.5 rounded-xl border border-[#E5E2E1] bg-white p-2.5 shadow-sm">
       <button
         type="button"
         onClick={onOpenDetails}
@@ -545,18 +534,18 @@ const MiniChargerRow: React.FC<CardProps> = ({
         aria-label={`View details for ${charger.title}`}
       >
         <span className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[#173D2C]">
-          <ChargerThumbPlate
+          {charger.photoUrl ? <img src={charger.photoUrl} alt={`${charger.title} charger`} className="h-full w-full object-cover" /> : <ChargerThumbPlate
             theme={charger.visualTheme ?? 'driveway-canopy'}
             powerKw={charger.powerKw ?? 0}
             connector={charger.connector ?? ''}
-          />
+          />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[12px] font-bold text-[#22251F]">
             {charger.title || 'Unnamed charger'}
           </span>
           <span className="mt-0.5 block truncate text-[11px] text-[#565A52]">
-            ₹{charger.pricePerKwh}/kWh · {charger.powerKw} kW · {charger.distanceKm} km
+            {tariffLabel(charger)} · {charger.powerKw} kW · {distanceLabel(charger)}
           </span>
         </span>
       </button>
@@ -588,6 +577,8 @@ const MiniChargerRow: React.FC<CardProps> = ({
 
 interface FindChargersPageProps {
   chargers: ChargerListing[];
+  chargersLoading: boolean;
+  chargersError: string;
   /** Signed-in account — supplied by App so there is a single auth listener. */
   user: FirebaseUser | null;
   onOpenDetail: (charger: ChargerListing) => void;
@@ -599,6 +590,8 @@ interface FindChargersPageProps {
 
 export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   chargers,
+  chargersLoading,
+  chargersError,
   user,
   onOpenDetail,
   onOpenProfile,
@@ -612,11 +605,17 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const searchRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const { favouriteIds, toggleFavourite } = useFavourites(user?.uid ?? null);
+
+  // This route can inherit the landing page's old scroll position on navigation.
+  // Start at the top so the client hero/search panel is visible on every entry.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Keep typing responsive while filtering over the full list
   const deferredQuery = useDeferredValue(filters.searchQuery);
@@ -625,9 +624,22 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
     [filters, deferredQuery],
   );
 
+  const chargersWithDistance = useMemo(() => chargers.map((charger) => {
+    if (!userLocation) return { ...charger, distanceKm: null };
+    const position = chargerLatLng(charger);
+    if (!position) return { ...charger, distanceKm: null };
+    const radians = (degrees: number) => (degrees * Math.PI) / 180;
+    const dLat = radians(position.lat - userLocation.lat);
+    const dLng = radians(position.lng - userLocation.lng);
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(radians(userLocation.lat)) * Math.cos(radians(position.lat)) * Math.sin(dLng / 2) ** 2;
+    const distanceKm = Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
+    return { ...charger, distanceKm };
+  }), [chargers, userLocation]);
+
   const results = useMemo(
-    () => sortChargers(filterChargers(chargers, effectiveFilters), sortBy),
-    [chargers, effectiveFilters, sortBy],
+    () => sortChargers(filterChargers(chargersWithDistance, effectiveFilters), sortBy),
+    [chargersWithDistance, effectiveFilters, sortBy],
   );
 
   const patch = useCallback(
@@ -685,11 +697,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
     [onOpenDetail],
   );
 
-  const focusSearch = useCallback(() => {
-    searchRef.current?.focus();
-    searchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, []);
-
   const toggleConnector = useCallback(
     (connector: ConnectorType) => {
       setFilters((prev) => ({
@@ -706,8 +713,9 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
     const prices = results.map((c) => c.pricePerKwh).filter((p) => Number.isFinite(p) && p > 0);
     const minPrice = prices.length > 0 ? Math.min(...prices) : null;
     const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
-    const hosts = new Set(results.map((c) => c.hostName)).size;
-    return { availableCount, minPrice, maxPrice, hosts };
+    const averagePrice = prices.length > 0 ? prices.reduce((sum, price) => sum + price, 0) / prices.length : null;
+    const hosts = new Set(results.map((c) => c.providerId).filter(Boolean)).size;
+    return { availableCount, minPrice, maxPrice, averagePrice, hosts };
   }, [results]);
 
   const visibleResults = showAll ? results : results.slice(0, INITIAL_VISIBLE);
@@ -728,36 +736,22 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const hasUnread = activeReservationCount > 0;
 
   return (
-    <div className="min-h-screen bg-[#F6F3E9] pb-28 lg:pb-12">
+    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-28 lg:pb-12">
       {/* ── Compact top navigation ─────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1360px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6">
-          {/* Lightning brand → landing page */}
+      <header className="find-chargers-topbar sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
+        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6">
           <button
             type="button"
             onClick={goHome}
             aria-label="ChargeShare home"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#173D2C] text-[#D8F36A] transition-colors hover:bg-[#285641] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            className="find-chargers-brand inline-flex shrink-0 items-center rounded px-1 py-1.5 text-white transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            <Zap className="h-4 w-4 fill-current" />
+            <span className="font-display text-[13px] font-bold tracking-[0.16em]">CHARGESHARE</span>
           </button>
-          <span className="hidden shrink-0 font-display text-base font-bold text-[#173D2C] sm:inline">
-            ChargeShare
+          <span className="find-chargers-mode shrink-0 rounded border border-white/15 bg-white/10 px-2 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-widest text-white/85">
+            Explore
           </span>
-
-          {/* Current search area — focuses the location search bar */}
-          <button
-            type="button"
-            onClick={focusSearch}
-            aria-label={`Current search area: ${locationLabel}. Edit location search`}
-            className="inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-[#D8D5CA] bg-white px-3 py-2 text-left transition-colors hover:border-[#173D2C] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
-          >
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-[#173D2C]" />
-            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#22251F]">
-              {locationLabel}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#888]" />
-          </button>
+          <span className="min-w-0 flex-1" />
 
           {/* Notifications — shows real session state, never a fabricated count */}
           <div ref={notifRef} className="relative shrink-0">
@@ -813,16 +807,22 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
       </header>
 
       {/* ── Location search + filter chips ─────────────────────────────────── */}
-      <section className="mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Search and filters">
-        <div className="flex items-center gap-2">
+      <section className="find-chargers-hero mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Search and filters">
+        <div className="find-chargers-hero__heading flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-[1.35rem] font-bold leading-tight tracking-tight text-white">Find a Private Charger</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-white/60"><span className="text-white/90">{locationLabel}</span><span>·</span><span>{summary.availableCount} bays available</span></p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-wider text-white"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />Live grid</span>
+        </div>
+        <div className="find-chargers-search-row mt-4 flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888]" />
             <input
-              ref={searchRef}
               type="search"
               value={filters.searchQuery}
               onChange={(e) => patch('searchQuery', e.target.value)}
-              placeholder="Search area, address or locality"
+              placeholder="Search street, host or plug type..."
               aria-label="Search area, address or locality"
               className="h-12 w-full rounded-2xl border border-[#D8D5CA] bg-white pl-10 pr-10 text-sm text-[#22251F] placeholder:text-[#AAA] focus:border-[#173D2C] focus:outline-none"
             />
@@ -859,7 +859,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
         {/* Quick-filter chips — horizontally scrollable, combinable and clearable */}
         <div
-          className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="find-chargers-quick-filters mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="group"
           aria-label="Quick filters"
         >
@@ -927,6 +927,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
                   id="filter-price"
                   type="range"
                   className="cs-slider w-full"
+                  disabled={!userLocation}
                   min={5}
                   max={40}
                   step={1}
@@ -937,6 +938,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
                   aria-valuenow={filters.maxPricePerKwh}
                   aria-valuetext={`₹${filters.maxPricePerKwh} per kWh`}
                 />
+                {!userLocation && <p className="text-[10px] text-[#747878]">Use “Locate me” on the map to enable distance sorting and filtering.</p>}
                 <div className="flex justify-between font-mono text-[10px] text-[#888]">
                   <span>₹5</span>
                   <span>₹40</span>
@@ -1018,7 +1020,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
                   type="button"
                   role="switch"
                   aria-checked={filters.availableNowOnly}
-                  aria-label="Available now only"
+                  aria-label="Active listings only"
                   onClick={() => patch('availableNowOnly', !filters.availableNowOnly)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 transition-colors focus-visible:outline-2 focus-visible:outline-[#173D2C] ${
                     filters.availableNowOnly
@@ -1034,7 +1036,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
                     }`}
                   />
                 </button>
-                <span className="font-semibold text-[#22251F]">Available now only</span>
+                <span className="font-semibold text-[#22251F]">Active listings only</span>
               </div>
             </div>
 
@@ -1055,12 +1057,12 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
       </section>
 
       {/* ── Map ─────────────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] text-[#565A52]">
-            {results.length} charger{results.length !== 1 ? 's' : ''} on the map
-            {selectedId ? ' · 1 selected' : ''}
-          </p>
+      <section className="find-chargers-map-section mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
+        <div className="find-chargers-map-heading mb-0 flex items-center justify-between gap-2 rounded-t-xl border border-[#E5E2E1] bg-white px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="font-label-caps text-[10px] font-semibold uppercase tracking-wider text-black">Grid view</span>
+            <span className="truncate text-[11px] text-[#5E5F5C]">{locationLabel}{selectedId ? ' · 1 selected' : ''}</span>
+          </div>
           <div className="flex shrink-0 overflow-hidden rounded-full border border-[#D8D5CA]">
             <button
               type="button"
@@ -1089,38 +1091,34 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
         <ChargerMap
           chargers={results}
+          onUserLocation={setUserLocation}
           selectedChargerId={selectedId}
           onSelectCharger={handleSelect}
           onViewDetails={handleOpenDetails}
           className={
             view === 'map'
               ? 'h-[440px] sm:h-[540px] lg:h-[640px]'
-              : 'h-[220px] sm:h-[300px] lg:h-[420px]'
+              : 'h-[220px] sm:h-[300px] lg:h-[360px]'
           }
         />
       </section>
 
-      <section className="mx-auto max-w-[1360px] px-3 pt-5 sm:px-6">
+      <section className="find-chargers-results mx-auto max-w-[1360px] px-3 pt-5 sm:px-6">
         {/* ── Nearby Chargers header ───────────────────────────────────────── */}
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-lg font-bold tracking-tight text-[#22251F]">
+              <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5E5F5C]">
                 Nearby Chargers
               </h2>
               <span
                 aria-label={`${results.length} chargers`}
-                className="rounded-full bg-[#173D2C] px-2 py-0.5 font-mono text-[11px] font-bold text-[#D8F36A]"
+                className="font-mono text-xs text-[#5E5F5C]"
               >
                 {results.length}
               </span>
             </div>
-            <p className="mt-0.5 truncate text-[11px] text-[#565A52]">
-              {locationLabel}
-              {summary.hosts > 0 ? ` · ${summary.hosts} host${summary.hosts !== 1 ? 's' : ''}` : ''}
-              {' · '}
-              {isDefaultFilters ? 'nearest first' : `sorted by ${sortBy}`}
-            </p>
+            <p className="sr-only">{locationLabel} · {summary.hosts} hosts · {isDefaultFilters ? 'nearest first' : `sorted by ${sortBy}`}</p>
           </div>
 
           {view === 'list' && !showAll && results.length > INITIAL_VISIBLE && (
@@ -1134,19 +1132,12 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           )}
         </div>
 
-        {/* Seed-data honesty notice (kept from the previous page) */}
-        {results.length > 0 && results.every(isDevSeedRecord) && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-[#FEC84B] bg-[#FFFAEB] px-3 py-2.5 text-[11px] text-[#7A4F00]">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <strong>Development seed data</strong> — these listings are simulated for the demo. No
-              real inventory, live availability or actual bookings are represented.
-            </span>
-          </div>
-        )}
-
         {/* ── Results ──────────────────────────────────────────────────────── */}
-        {results.length === 0 ? (
+        {chargersLoading ? (
+          <p role="status" className="py-12 text-center text-sm text-[#565A52]">Loading live provider listings…</p>
+        ) : chargersError ? (
+          <p role="alert" className="py-12 text-center text-sm text-[#B42318]">Could not load provider listings: {chargersError}</p>
+        ) : results.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[#D8D5CA] bg-[#EDE8D8]">
               <Search className="h-6 w-6 text-[#888]" />
@@ -1205,42 +1196,34 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         )}
 
         {/* ── Community availability banner (real aggregates only) ─────────── */}
-        <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[#173D2C] p-4 text-[#F6F3E9]">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D8F36A] text-[#173D2C]">
-            <Zap className="h-5 w-5 fill-current" />
-          </span>
-          <div className="min-w-0">
-            <p className="font-display text-[14px] font-bold leading-snug">
-              {summary.availableCount > 0
-                ? `${summary.availableCount} neighbourhood charger${
-                    summary.availableCount !== 1 ? 's are' : ' is'
-                  } online right now in ${locationLabel}`
-                : `No chargers are online right now in ${locationLabel}`}
-            </p>
-            <p className="mt-1 text-[12px] leading-snug text-[#C7D6CD]">
-              {summary.minPrice !== null
-                ? `${summary.hosts} host${summary.hosts !== 1 ? 's' : ''} offering slots from ₹${summary.minPrice}/kWh${
-                    summary.maxPrice !== null && summary.maxPrice !== summary.minPrice
-                      ? ` up to ₹${summary.maxPrice}/kWh`
-                      : ''
-                  } · prices set by the hosts themselves.`
-                : 'Adjust your filters to see host pricing for this area.'}
-            </p>
+        <div className="find-chargers-activity mt-5 rounded-xl border border-[#E5E2E1] bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-label-caps text-[10px] font-semibold uppercase tracking-[0.14em] text-[#5E5F5C]">Grid activity overview</span>
+            <span className="truncate text-[11px] text-[#5E5F5C]">{locationLabel}</span>
           </div>
+          <div className="mt-4 grid grid-cols-3 divide-x divide-[#E5E2E1]">
+            <div className="pr-3"><span className="block font-display text-lg font-bold text-[#1C1B1B]">{results.length}</span><span className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Listed bays</span></div>
+            <div className="px-3"><span className="block font-display text-lg font-bold text-[#1C1B1B]">{summary.availableCount}</span><span className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Accepting requests</span></div>
+            <div className="pl-3"><span className="block font-display text-lg font-bold text-[#1C1B1B]">{summary.averagePrice === null ? '—' : `₹${summary.averagePrice.toFixed(1)}`}</span><span className="font-label-caps text-[9px] uppercase tracking-wider text-[#5E5F5C]">Avg tariff</span></div>
+          </div>
+        </div>
+        <div className="py-6 text-center">
+          <span className="block font-label-caps text-[9px] font-semibold uppercase tracking-[0.2em] text-[#747878]">ChargeShare · Explore Grid</span>
+          <span className="mt-1 block text-[10px] text-[#747878]">Neighbourhood EV charging marketplace</span>
         </div>
       </section>
 
       {/* ── Fixed mobile bottom navigation ─────────────────────────────────── */}
       <nav
         aria-label="Primary mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D8D5CA] bg-[#F6F3E9] lg:hidden"
+        className="find-chargers-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E2E1] bg-[#FCF9F8]/95 backdrop-blur lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="mx-auto flex max-w-[520px] items-stretch justify-around px-2 py-1.5">
           <button
             type="button"
             aria-current="page"
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-bold text-[#173D2C] focus-visible:outline-2 focus-visible:outline-[#173D2C]"
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-black focus-visible:outline-2 focus-visible:outline-black"
           >
             <Compass className="h-5 w-5" />
             Explore
@@ -1248,15 +1231,24 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <button
             type="button"
             onClick={onOpenBookings}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-[#565A52] transition-colors hover:text-[#173D2C] focus-visible:outline-2 focus-visible:outline-[#173D2C]"
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
           >
             <CalendarCheck className="h-5 w-5" />
             Bookings
           </button>
           <button
             type="button"
+            onClick={onOpenBookings}
+            title="Recent booking activity"
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
+          >
+            <Activity className="h-5 w-5" />
+            Activity
+          </button>
+          <button
+            type="button"
             onClick={() => onOpenProfile('view')}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-[#565A52] transition-colors hover:text-[#173D2C] focus-visible:outline-2 focus-visible:outline-[#173D2C]"
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
           >
             <UserRound className="h-5 w-5" />
             Profile

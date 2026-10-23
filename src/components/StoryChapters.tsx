@@ -21,7 +21,7 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
   onSelectNode,
   onExploreClick,
 }) => {
-  const activeCharger = chargers[selectedChargerIndex] || chargers[0];
+  const activeCharger = chargers[selectedChargerIndex] ?? chargers[0] ?? null;
 
   return (
     <section
@@ -75,18 +75,28 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
           </div>
 
           {/* Highlighted Node Readout */}
-          <div className="py-3 border-t border-b border-[#26503B] flex items-center justify-between gap-4 text-xs">
-            <div>
-              <div className="font-bold text-white font-display">{activeCharger.title}</div>
-              <div className="text-[#B5C7BD]">
-                {activeCharger.locality}, {activeCharger.city} · {activeCharger.connector}
+          {activeCharger ? (
+            <div className="py-3 border-t border-b border-[#26503B] flex items-center justify-between gap-4 text-xs">
+              <div className="min-w-0">
+                <div className="truncate font-bold text-white font-display">{activeCharger.title}</div>
+                <div className="truncate text-[#B5C7BD]">
+                  {activeCharger.locality}, {activeCharger.city} · {activeCharger.connector}
+                </div>
+              </div>
+              <div className="text-right font-mono shrink-0">
+                <div className="text-base font-bold text-[#D8F36A]">
+                  ₹{activeCharger.pricePerKwh}/{activeCharger.pricingType === 'per_session' ? 'session' : 'kWh'}
+                </div>
+                <div className="text-[11px] text-[#C6D6CE]">
+                  {activeCharger.distanceKm === null ? 'Distance unavailable' : `${activeCharger.distanceKm} km away`}
+                </div>
               </div>
             </div>
-            <div className="text-right font-mono shrink-0">
-              <div className="text-base font-bold text-[#D8F36A]">₹{activeCharger.pricePerKwh}/kWh</div>
-              <div className="text-[11px] text-[#C6D6CE]">{activeCharger.distanceKm} km away</div>
-            </div>
-          </div>
+          ) : (
+            <p className="border-y border-[#26503B] py-3 text-xs text-[#B5C7BD]">
+              No public charger listings are available yet. Check back after a provider publishes a bay.
+            </p>
+          )}
 
           <button
             type="button"

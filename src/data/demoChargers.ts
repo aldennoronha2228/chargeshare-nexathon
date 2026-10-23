@@ -22,16 +22,21 @@ export interface ChargerSlot {
 
 export interface ChargerListing {
   id: string;
+  providerId?: string;
+  photoUrl?: string;
   title: string;
   locality: string;
   city: Exclude<IndianCity, 'All Cities'>;
   addressCue: string;
-  distanceKm: number;
+  distanceKm: number | null;
   connector: ConnectorType;
   powerKw: number;
   pricePerKwh: number;
+  pricingType?: 'per_kwh' | 'per_session';
   parkingType: string;
   operatingHours: string;
+  availableFrom?: string;
+  availableTo?: string;
   availableNow: boolean;
   availabilityLabel: string;
   hostName: string;
@@ -40,10 +45,10 @@ export interface ChargerListing {
   reviewCount: number;
   completedSessions: number;
   hardwareModel: string;
-  cableLengthMeters: number;
+  cableLengthMeters: number | null;
   accessNotes: string;
   compatibleVehicles: string[];
-  mapPosition: { x: number; y: number };
+  mapPosition?: { x: number; y: number };
   coordinates: { lat: string; lng: string };
   visualTheme: 'driveway-canopy' | 'stilt-pillar' | 'courtyard-bay' | 'bungalow-gate';
   slots: ChargerSlot[];

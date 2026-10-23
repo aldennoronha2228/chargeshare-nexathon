@@ -4,7 +4,7 @@
  * Opens over the existing page without routing. Closes on Escape or backdrop click.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Star,
@@ -23,7 +23,7 @@ import { ChargerThumbPlate } from './EditorialIllustrations';
 interface ChargerDetailDrawerProps {
   charger: ChargerListing | null;
   onClose: () => void;
-  onBook: (charger: ChargerListing) => void;
+  onBook: (charger: ChargerListing, request: { vehicleName: string; vehicleNumber: string; totalKwh: number; startTime: string; endTime: string }) => Promise<void>;
 }
 
 export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
@@ -31,6 +31,14 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
   onClose,
   onBook,
 }) => {
+  const [vehicleName, setVehicleName] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [totalKwh, setTotalKwh] = useState(20);
+  const [bookingDate, setBookingDate] = useState(() => new Date(Date.now() + 86400000).toLocaleDateString('en-CA'));
+  const [bookingPending, setBookingPending] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [bookingSent, setBookingSent] = useState(false);
+
   // Trap focus / close on Escape
   useEffect(() => {
     if (!charger) return;
@@ -41,9 +49,52 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
     return () => document.removeEventListener('keydown', handleKey);
   }, [charger, onClose]);
 
+  useEffect(() => {
+    setBookingSent(false);
+    setBookingError('');
+    setVehicleName('');
+    setVehicleNumber('');
+  }, [charger?.id]);
+
   if (!charger) return null;
 
   const availableSlots = charger.slots.filter((s) => s.available);
+
+  const submitBooking = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBookingError('');
+    const match = availableSlots[0]?.window.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+    if (!charger.providerId || !vehicleName.trim() || !bookingDate || !Number.isFinite(totalKwh) || totalKwh < 2 || totalKwh > 100) {
+      setBookingError('Enter your vehicle, date, and an energy amount from 2 to 100 kWh.');
+      return;
+    }
+    if (!match) {
+      setBookingError('This provider has not set a bookable time window.');
+      return;
+    }
+    const start = new Date(`${bookingDate}T${match[1]}:00`);
+    let end = new Date(`${bookingDate}T${match[2]}:00`);
+    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    if (start <= new Date()) {
+      setBookingError('The provider window has already started today. Choose a later date.');
+      return;
+    }
+    setBookingPending(true);
+    try {
+      await onBook(charger, {
+        vehicleName: vehicleName.trim(),
+        vehicleNumber: vehicleNumber.trim(),
+        totalKwh,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+      setBookingSent(true);
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : 'Could not send the booking request.');
+    } finally {
+      setBookingPending(false);
+    }
+  };
 
   return (
     <>
@@ -71,7 +122,7 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
                   : 'bg-[#EDE8D8] text-[#565A52]'
               }`}
             >
-              {charger.availableNow ? '● AVAILABLE NOW' : '○ NEXT SLOT LATER'}
+              {charger.availableNow ? '● ACCEPTING REQUESTS' : '○ PAUSED BY HOST'}
             </span>
             <h2
               id="drawer-title"
@@ -98,11 +149,11 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
 
           {/* Thumb illustration */}
           <div className="h-40 bg-[#173D2C] overflow-hidden shrink-0">
-            <ChargerThumbPlate
+            {charger.photoUrl ? <img src={charger.photoUrl} alt={`${charger.title} charger`} className="h-full w-full object-cover" /> : <ChargerThumbPlate
               theme={charger.visualTheme}
               powerKw={charger.powerKw}
               connector={charger.connector}
-            />
+            />}
           </div>
 
           <div className="p-5 space-y-5">
@@ -118,12 +169,12 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
               <SpecBadge
                 icon={<span className="font-mono font-bold text-[10px]">₹</span>}
                 label="Price"
-                value={`₹${charger.pricePerKwh}/kWh`}
+                value={`₹${charger.pricePerKwh}/${charger.pricingType === 'per_session' ? 'session' : 'kWh'}`}
               />
               <SpecBadge
                 icon={<MapPin className="w-3.5 h-3.5" />}
                 label="Distance"
-                value={`${charger.distanceKm} km`}
+                value={charger.distanceKm === null ? 'Unavailable' : `${charger.distanceKm} km`}
               />
             </div>
 
@@ -135,9 +186,9 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[#3D423A]">
                 <KV label="Standard" value={charger.connector} />
-                <KV label="Cable" value={`${charger.cableLengthMeters} m`} />
-                <KV label="Model" value={charger.hardwareModel} span />
-                <KV label="Parking" value={charger.parkingType} span />
+                <KV label="Cable" value={charger.cableLengthMeters === null ? 'Not provided' : `${charger.cableLengthMeters} m`} />
+                <KV label="Charger" value={charger.hardwareModel || 'Not specified'} span />
+                <KV label="Parking" value={charger.parkingType || 'Not specified'} span />
               </div>
             </div>
 
@@ -150,15 +201,15 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-[#22251F]">{charger.hostName}</p>
-                  <p className="text-[#888] text-[11px]">{charger.hostTenure}</p>
+                  <p className="text-[#888] text-[11px]">Provider listing</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Star className="w-3.5 h-3.5 fill-[#F0A500] text-[#F0A500]" />
-                  <span className="font-mono font-bold text-[#22251F]">{charger.rating.toFixed(1)}</span>
+                  <span className="font-mono font-bold text-[#22251F]">{charger.rating > 0 ? charger.rating.toFixed(1) : '—'}</span>
                   <span className="text-[#888]">({charger.reviewCount})</span>
                 </div>
               </div>
-              <p className="text-[#565A52] text-[11px]">{charger.completedSessions} completed sessions</p>
+              <p className="text-[#565A52] text-[11px]">{charger.reviewCount ? `${charger.reviewCount} reviews` : 'No reviews yet'}</p>
             </div>
 
             {/* Operating hours + access */}
@@ -234,23 +285,31 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
 
         {/* Footer CTA */}
         <div className="p-4 border-t border-[#D8D5CA] bg-[#F6F3E9] shrink-0">
-          {availableSlots.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => onBook(charger)}
-              className="w-full py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
-            >
-              <CalendarCheck className="w-4 h-4" />
-              Reserve a Slot (Demo)
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          {bookingSent ? (
+            <div role="status" className="rounded border border-[#173D2C] bg-[#D8F36A] p-3 text-center text-sm font-semibold text-[#173D2C]">Booking request sent to the provider.</div>
+          ) : availableSlots.length > 0 ? (
+            <form onSubmit={submitBooking} className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-semibold text-[#565A52]">Vehicle<input required value={vehicleName} onChange={(event) => setVehicleName(event.target.value)} placeholder="Make and model" className="mt-1 w-full rounded border border-[#D8D5CA] bg-white px-2 py-2 text-xs text-[#22251F]" /></label>
+                <label className="text-[10px] font-semibold text-[#565A52]">Vehicle number<input value={vehicleNumber} onChange={(event) => setVehicleNumber(event.target.value)} placeholder="Optional" className="mt-1 w-full rounded border border-[#D8D5CA] bg-white px-2 py-2 text-xs text-[#22251F]" /></label>
+                <label className="text-[10px] font-semibold text-[#565A52]">Date<input required type="date" min={new Date().toLocaleDateString('en-CA')} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1 w-full rounded border border-[#D8D5CA] bg-white px-2 py-2 text-xs text-[#22251F]" /></label>
+                <label className="text-[10px] font-semibold text-[#565A52]">Energy needed (kWh)<input required type="number" min="2" max="100" value={totalKwh} onChange={(event) => setTotalKwh(Number(event.target.value))} className="mt-1 w-full rounded border border-[#D8D5CA] bg-white px-2 py-2 text-xs text-[#22251F]" /></label>
+              </div>
+              <p className="text-[11px] text-[#565A52]">Estimated total: <strong>₹{charger.pricingType === 'per_session' ? charger.pricePerKwh : charger.pricePerKwh * totalKwh}</strong></p>
+              {bookingError && <p role="alert" className="text-[11px] text-[#B42318]">{bookingError}</p>}
+              <button type="submit" disabled={bookingPending} className="w-full py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] disabled:opacity-60 cursor-pointer">
+                <CalendarCheck className="w-4 h-4" />
+                {bookingPending ? 'Sending request…' : 'Request a booking'}
+                {!bookingPending && <ChevronRight className="w-4 h-4" />}
+              </button>
+            </form>
           ) : (
             <div className="w-full py-3 px-4 text-center text-sm text-[#565A52] bg-[#EDE8D8] border border-[#D8D5CA] rounded">
               No slots currently available — check back later
             </div>
           )}
           <p className="text-[10px] text-[#888] text-center mt-2">
-            Demo only · No real booking or payment is processed
+            Booking requests are sent to the provider for approval.
           </p>
         </div>
       </aside>

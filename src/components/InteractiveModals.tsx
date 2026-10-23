@@ -13,19 +13,7 @@ import type { ChargerListing, ConnectorType, IndianCity } from '../data/demoChar
 import { validateHostListingForm } from '../utils/marketplaceLogic';
 import { describeAuthError } from '../utils/authErrors';
 import { auth } from '../firebase';
-
-export interface ConfirmedDemoBooking {
-  bookingId: string;
-  chargerId: string;
-  chargerTitle: string;
-  locality: string;
-  city: string;
-  slotWindow: string;
-  driverName: string;
-  vehicleModel: string;
-  estimatedKwh: number;
-  estimatedTotalInr: number;
-}
+import type { Booking } from '../utils/bookings';
 
 interface HostOnboardingModalProps {
   isOpen: boolean;
@@ -319,7 +307,7 @@ export const HostOnboardingModal: React.FC<HostOnboardingModalProps> = ({
 interface SignInAndBookingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  confirmedBookings: ConfirmedDemoBooking[];
+  confirmedBookings: Booking[];
   onCancelBooking: (bookingId: string) => void;
   onOpenEditProfile: () => void;
 }
@@ -508,34 +496,33 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
         {/* Active Session Demo Bookings List */}
         <div className="pt-3 border-t border-[#D8D5CA] space-y-3">
           <div className="text-xs font-mono uppercase text-[#22251F] font-semibold">
-            Your Reserved Demo Slots ({confirmedBookings.length})
+            Your Booking Requests ({confirmedBookings.length})
           </div>
           {confirmedBookings.length === 0 ? (
             <p className="text-xs text-[#565A52] bg-white border border-[#D8D5CA] p-4 rounded">
-              You have not reserved any demo slots in this session yet. Select any charger in the discovery
-              map to test reserving a time window.
+              You have no booking requests yet. Explore active provider listings to request a charge.
             </p>
           ) : (
             <div className="space-y-2.5">
               {confirmedBookings.map((b) => (
                 <div
-                  key={b.bookingId}
+                  key={b.id}
                   className="p-3.5 bg-white border border-[#D8D5CA] rounded text-xs flex items-center justify-between gap-3"
                 >
                   <div>
-                    <div className="font-bold text-[#22251F]">{b.chargerTitle}</div>
+                    <div className="font-bold text-[#22251F]">{b.vehicleName} · {b.status}</div>
                     <div className="text-[#565A52]">
-                      {b.slotWindow} · {b.estimatedKwh} kWh · Est. ₹{b.estimatedTotalInr}
+                      {b.chargerTitle || `Charger ${b.chargerId}`} · {b.chargerLocality} · {new Date(b.startTime).toLocaleString()} · {b.totalKwh ?? 0} kWh · ₹{b.totalPrice}
                     </div>
                   </div>
-                  <button
+                  {['pending', 'accepted'].includes(b.status) && <button
                     type="button"
-                    onClick={() => onCancelBooking(b.bookingId)}
-                    aria-label={`Cancel reservation ${b.bookingId}`}
+                    onClick={() => onCancelBooking(b.id)}
+                    aria-label={`Cancel booking ${b.id}`}
                     className="p-1.5 text-[#B42318] hover:bg-[#FEE4E2] rounded cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>

@@ -60,6 +60,18 @@ export function subscribeToProviderReviews(
   );
 }
 
+/** Streams readable reviews for marketplace rating summaries. */
+export function subscribeToPublicReviews(
+  onReviews: (reviews: Review[]) => void,
+  onError: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'reviews'),
+    (snapshot) => onReviews(snapshot.docs.map(toReview)),
+    (error) => onError(error.message)
+  );
+}
+
 /** Responds to a review. */
 export async function respondToReview(reviewId: string, response: string): Promise<void> {
   const reference = doc(db, 'reviews', reviewId);
