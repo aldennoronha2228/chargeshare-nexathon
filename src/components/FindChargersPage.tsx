@@ -1094,6 +1094,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         )}
       </section>
 
+      <div className="find-chargers-desktop-layout">
       {/* ── Map ─────────────────────────────────────────────────────────────── */}
       <section className="find-chargers-map-section mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Charger map">
         <div className="find-chargers-map-heading mb-0 flex items-center justify-between gap-2 rounded-t-xl border border-[#E5E2E1] bg-white px-4 py-3">
@@ -1135,8 +1136,8 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           onViewDetails={handleOpenDetails}
           className={
             view === 'map'
-              ? 'h-[440px] sm:h-[540px] lg:h-[640px]'
-              : 'h-[220px] sm:h-[300px] lg:h-[360px]'
+              ? 'h-[440px] sm:h-[540px] lg:h-[560px]'
+              : 'h-[300px] sm:h-[360px] lg:h-[420px]'
           }
         />
       </section>
@@ -1235,7 +1236,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <span className="mt-1 block text-[10px] text-[#747878]">Neighbourhood EV charging marketplace</span>
         </div>
       </section>
-
+      </div>
     </div>
   );
 };
