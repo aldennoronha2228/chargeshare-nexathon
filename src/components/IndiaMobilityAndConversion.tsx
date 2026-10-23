@@ -24,9 +24,6 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
         <div className="max-w-[1360px] mx-auto px-4 sm:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6 space-y-5">
-              <div className="text-xs font-mono uppercase tracking-wider text-[#173D2C]">
-                BUILT FOR INDIAN URBAN NEIGHBOURHOODS
-              </div>
               <h2
                 id="india-mobility-heading"
                 className="font-display font-bold text-[#22251F] tracking-tight leading-[1.08] text-balance"
@@ -72,10 +69,6 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
 
               <div className="sm:col-span-2 bg-[#173D2C] text-[#F6F3E9] border border-[#22251F] rounded p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs font-mono text-[#D8F36A]">
-                    <Users className="w-4 h-4" />
-                    <span>ROUTINE COMMUNITY CHARGING</span>
-                  </div>
                   <h3 className="text-base font-bold font-display text-white">
                     Built for repeat local relationships, not anonymous highway queues.
                   </h3>
@@ -107,9 +100,6 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
           {/* Pathway 1: For Drivers (Warm Ivory High-Contrast Panel) */}
           <div className="bg-[#F6F3E9]/95 text-[#22251F] px-6 sm:px-12 lg:px-16 py-16 lg:py-24 border-b lg:border-b-0 lg:border-r border-[#22251F] flex flex-col justify-between space-y-8">
             <div className="space-y-4 max-w-lg">
-              <div className="text-xs font-mono uppercase tracking-wider text-[#173D2C] font-semibold">
-                CHAPTER 05 · FOR EV DRIVERS
-              </div>
               <h2
                 className="font-display font-bold text-[#22251F] tracking-tight text-balance"
                 style={{ fontSize: 'clamp(2rem, 3.2vw, 3rem)' }}
@@ -136,9 +126,6 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
           {/* Pathway 2: For Hosts (Deep Forest + Electric Lime Panel) */}
           <div className="bg-[#173D2C]/95 text-[#F6F3E9] px-6 sm:px-12 lg:px-16 py-16 lg:py-24 flex flex-col justify-between space-y-8">
             <div className="space-y-4 max-w-lg">
-              <div className="text-xs font-mono uppercase tracking-wider text-[#D8F36A] font-semibold">
-                CHAPTER 05 · FOR CHARGER HOSTS
-              </div>
               <h2
                 className="font-display font-bold text-white tracking-tight text-balance"
                 style={{ fontSize: 'clamp(2rem, 3.2vw, 3rem)' }}
@@ -156,7 +143,7 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                 onClick={onOpenHostModal}
                 className="inline-flex items-center gap-2 px-7 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] border border-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
               >
-                BECOME A PROVIDER
+                BECOME A HOST
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -174,8 +161,12 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                 href="#"
                 className="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-white font-display"
               >
-                <span className="w-7 h-7 rounded bg-[#D8F36A] text-[#173D2C] inline-flex items-center justify-center">
-                  <Zap className="w-4 h-4 fill-current" />
+                <span className="w-8 h-8 rounded bg-[#D8F36A] p-1.5 inline-flex items-center justify-center shrink-0 shadow-xs">
+                  <img
+                    src="/logo-square-dark.png"
+                    alt="ChargeShare logo mark"
+                    className="w-full h-full object-contain"
+                  />
                 </span>
                 ChargeShare
               </a>
@@ -187,9 +178,9 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
 
             {/* Marketplace Links */}
             <div className="md:col-span-4 space-y-2.5">
-              <div className="text-xs font-mono uppercase tracking-wider text-[#D8F36A]">
-                Marketplace Navigation
-              </div>
+              <h3 className="text-sm font-semibold text-white font-display">
+                Marketplace
+              </h3>
               <ul className="space-y-2 text-sm text-[#D8D5CA]">
                 <li>
                   <a href="#chapter-connect" className="hover:text-white hover:underline underline-offset-4">
@@ -202,7 +193,7 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                     onClick={onOpenHostModal}
                     className="hover:text-white hover:underline underline-offset-4 cursor-pointer"
                   >
-                    Become a Provider
+                    Become a Host
                   </button>
                 </li>
                 <li>
@@ -220,9 +211,9 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
 
             {/* Support & Legal */}
             <div className="md:col-span-3 space-y-2.5">
-              <div className="text-xs font-mono uppercase tracking-wider text-[#D8F36A]">
+              <h3 className="text-sm font-semibold text-white font-display">
                 Resources & Policies
-              </div>
+              </h3>
               <ul className="space-y-2 text-sm text-[#D8D5CA]">
                 <li>
                   <button

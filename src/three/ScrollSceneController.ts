@@ -127,14 +127,29 @@ export class ScrollSceneController {
     let aspectTargetOffsetX = 0;
     let aspectTargetOffsetY = 0;
 
-    if (aspect < 0.82) {
-      // Portrait mobile: center horizontally, push 3D objects into lower half of screen
-      aspectPosOffsetX = 1.9;
-      aspectPosOffsetZ = 2.6;
-      aspectTargetOffsetX = 1.95;
-      aspectTargetOffsetY = 1.35;
+    if (aspect < 0.85) {
+      // Portrait mobile (smartphones):
+      if (this.activeChapter === 'book') {
+        // Book & Charge step: pull back and lower wallbox so it does not collide with step text
+        aspectPosOffsetX = 0.2;
+        aspectPosOffsetZ = 2.4;
+        aspectTargetOffsetX = 0.15;
+        aspectTargetOffsetY = 1.2;
+      } else if (this.activeChapter === 'connect') {
+        // Neighbourhood grid: pull back further to show connected nodes in lower viewport
+        aspectPosOffsetX = 0.8;
+        aspectPosOffsetZ = 4.2;
+        aspectTargetOffsetX = 0.5;
+        aspectTargetOffsetY = 0.95;
+      } else {
+        // Discover / Hero & other chapters: frame car and charger in lower screen
+        aspectPosOffsetX = 1.35;
+        aspectPosOffsetZ = 3.1;
+        aspectTargetOffsetX = 1.2;
+        aspectTargetOffsetY = 1.55;
+      }
     } else if (aspect < 1.25) {
-      // Split-screen preview pane (768px - 1050px wide): push 3D objects slightly further right
+      // Split-screen / tablet preview pane (768px - 1050px wide): push 3D objects slightly further right
       aspectPosOffsetX = -0.35;
       aspectPosOffsetZ = 0.9;
       aspectTargetOffsetX = -0.45;

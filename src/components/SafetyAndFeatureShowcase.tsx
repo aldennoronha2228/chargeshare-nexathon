@@ -12,9 +12,6 @@ export const SafetyAndFeatureShowcase: React.FC = () => {
         {/* Top Editorial Split */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-[#D8D5CA]">
           <div className="lg:col-span-5 space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-[#173D2C]">
-              CHAPTER 04 · TRUST AND SAFETY
-            </div>
             <h2
               id="safety-heading"
               className="font-display font-bold text-[#22251F] tracking-tight text-balance"
