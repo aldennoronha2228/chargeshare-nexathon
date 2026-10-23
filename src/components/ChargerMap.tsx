@@ -35,19 +35,9 @@ import {
 } from 'lucide-react';
 import type { ChargerListing } from '../data/demoChargers';
 import { chargerLatLng, centreOf } from '../utils/geoUtils';
+import { resolveMapStyle } from '../utils/mapStyle';
 
 // ─── Map style ────────────────────────────────────────────────────────────────
-
-function resolveMapStyle(): string {
-  const apiKey = import.meta.env.VITE_MAP_TILES_API_KEY;
-  if (apiKey && apiKey.trim().length > 0) {
-    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`;
-  }
-  // OpenFreeMap — no key required
-  return 'https://tiles.openfreemap.org/styles/liberty';
-}
-
-const MAP_STYLE = resolveMapStyle();
 
 // ─── SVG marker factory ───────────────────────────────────────────────────────
 
@@ -205,7 +195,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: MAP_STYLE,
+        style: resolveMapStyle(),
         center: [78.9629, 20.5937], // India centre — overridden once chargers load
         zoom: 4,
         attributionControl: false,
