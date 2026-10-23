@@ -195,6 +195,69 @@ export function validateHostListingForm(input: HostListingFormInput): Validation
   };
 }
 
+export interface ProviderChargerFormInput {
+  title: string;
+  addressLine: string;
+  locality: string;
+  city: Exclude<IndianCity, 'All Cities'>;
+  connector: ConnectorType;
+  powerKw: number;
+  pricePerKwh: number;
+  availableFrom: string;
+  availableTo: string;
+  accessNotes: string;
+  hasChargerPhoto: boolean;
+  hasSpacePhoto: boolean;
+}
+
+/** Validates the provider "add a charger" questionnaire, including both photo uploads. */
+export function validateProviderChargerForm(input: ProviderChargerFormInput): ValidationResult {
+  const errors: Record<string, string> = {};
+
+  if (!input.title || input.title.trim().length < 3) {
+    errors.title = 'Give this charger a short name drivers will recognise.';
+  }
+
+  if (!input.addressLine || input.addressLine.trim().length < 4) {
+    errors.addressLine = 'Enter the building, street or gate address.';
+  }
+
+  if (!input.locality || input.locality.trim().length < 3) {
+    errors.locality = 'Enter your neighbourhood or locality (e.g., Indiranagar, Baner).';
+  }
+
+  if (!Number.isFinite(input.powerKw) || input.powerKw < 2 || input.powerKw > 100) {
+    errors.powerKw = 'Charger power rating must be between 2 kW and 100 kW.';
+  }
+
+  if (!Number.isFinite(input.pricePerKwh) || input.pricePerKwh < 5 || input.pricePerKwh > 40) {
+    errors.pricePerKwh = 'Set a price between ₹5/kWh and ₹40/kWh.';
+  }
+
+  if (!input.availableFrom || !input.availableTo) {
+    errors.availability = 'Set the start and end time you can offer charging.';
+  } else if (input.availableFrom >= input.availableTo) {
+    errors.availability = 'The end time must be later than the start time.';
+  }
+
+  if (!input.accessNotes || input.accessNotes.trim().length < 10) {
+    errors.accessNotes = 'Tell drivers how to get in and where to park (at least 10 characters).';
+  }
+
+  if (!input.hasChargerPhoto) {
+    errors.chargerPhoto = 'Upload a photo of the charger unit.';
+  }
+
+  if (!input.hasSpacePhoto) {
+    errors.spacePhoto = 'Upload a photo of the space where the car will be parked and charged.';
+  }
+
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors,
+  };
+}
+
 export type ChapterKey =
   | 'discover'
   | 'connect'

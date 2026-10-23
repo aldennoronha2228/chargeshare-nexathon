@@ -97,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={onOpenHostModal}
             className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer"
           >
-            Become a Host
+            Become a Provider
           </button>
           <a
             href="#how-it-works"
@@ -162,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => handleMobileNav(onOpenHostModal)}
               className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
             >
-              Become a Host
+              Become a Provider
             </button>
             <a
               href="#how-it-works"

@@ -338,7 +338,7 @@ export const HeroScene: React.FC<HeroSceneProps> = ({
                 onClick={onBecomeHostClick}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-bold tracking-wider uppercase text-[#F6F3E9] bg-transparent border border-[#D8F36A] rounded hover:bg-[#173D2C] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                BECOME A HOST
+                BECOME A PROVIDER
               </button>
             </div>
 

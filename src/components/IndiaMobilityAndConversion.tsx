@@ -156,7 +156,7 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                 onClick={onOpenHostModal}
                 className="inline-flex items-center gap-2 px-7 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] border border-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
               >
-                BECOME A HOST
+                BECOME A PROVIDER
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -202,7 +202,7 @@ export const IndiaMobilityAndConversion: React.FC<IndiaMobilityAndConversionProp
                     onClick={onOpenHostModal}
                     className="hover:text-white hover:underline underline-offset-4 cursor-pointer"
                   >
-                    Become a Host
+                    Become a Provider
                   </button>
                 </li>
                 <li>
