@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-dim": "#dcdad3", "on-background": "#1c1c18", "secondary-fixed-dim": "#b2d40f", "surface-variant": "#e5e2db", "on-primary-container": "#7ea994", "on-tertiary-fixed-variant": "#2d4d40", "error-container": "#ffdad6", "on-error-container": "#93000a", "secondary-fixed": "#cdf137", "on-error": "#ffffff", "outline": "#717974", "on-secondary-fixed": "#171e00", "primary-fixed-dim": "#a4d0ba", "on-primary-fixed": "#002115", "surface-container-high": "#ebe8e1", "surface-container": "#f1eee7", "outline-variant": "#c1c8c2", "background": "#fcf9f2", "surface-tint": "#3d6754", "on-secondary-fixed-variant": "#3e4c00", "on-secondary-container": "#576a00", "on-tertiary-fixed": "#002116", "inverse-primary": "#a4d0ba", "surface": "#fcf9f2", "tertiary-container": "#1c3d31", "primary": "#00271a", "primary-fixed": "#bfedd5", "secondary-container": "#caee34", "on-primary-fixed-variant": "#254e3d", "surface-container-low": "#f6f3ec", "on-tertiary-container": "#85a898", "error": "#ba1a1a", "inverse-on-surface": "#f3f0e9", "inverse-surface": "#31312c", "surface-bright": "#fcf9f2", "tertiary": "#04271c", "surface-container-highest": "#e5e2db", "surface-container-lowest": "#ffffff", "tertiary-fixed-dim": "#abcebe", "tertiary-fixed": "#c6ebd9", "on-surface": "#1c1c18", "on-tertiary": "#ffffff", "on-secondary": "#ffffff", "on-surface-variant": "#414944", "secondary": "#546500", "on-primary": "#ffffff", "primary-container": "#133e2e" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin": "1rem", "gutter-desktop": "1.5rem", "gutter": "1rem", "space-xs": "0.25rem", "margin-tablet": "2rem", "margin-desktop": "3rem", "space-md": "1rem", "space-sm": "0.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem" }, "fontFamily": { "label-lg": ["Plus Jakarta Sans"], "display-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "title-md": ["Plus Jakarta Sans"], "display-lg-mobile": ["Plus Jakarta Sans"], "body-md": ["Inter"], "body-lg": ["Inter"], "label-caps": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"] }, "fontSize": { "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "700" }], "display-lg": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.03em", "fontWeight": "800" }], "headline-lg-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "title-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }], "display-lg-mobile": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "800" }], "body-md": ["15px", { "lineHeight": "22px", "fontWeight": "400" }], "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "700" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#fcf9f2;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style></head><body class="bg-surface font-body-md text-body-md text-on-surface flex flex-col min-h-screen selection:bg-secondary-container selection:text-primary-container"><header class="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(19,62,46,0.04)] pt-safe"><div class="h-16 px-margin flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-xs"><div class="w-9 h-9 rounded-full bg-primary-container flex items-center justify-center"><span class="material-symbols-outlined text-secondary-container text-[20px]">bolt</span></div><span class="font-headline-sm text-headline-sm text-primary tracking-tight hidden xs:inline">ChargeShare</span></div><div class="flex-1 max-w-[200px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high/80 text-on-surface-variant cursor-pointer hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[18px] text-primary">near_me</span><span class="font-label-md text-label-md truncate text-on-surface font-semibold">Indiranagar, Bengaluru</span></div><div class="flex items-center gap-1"><button aria-label="Notifications" class="w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors relative" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary-fixed-dim ring-2 ring-surface"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full relative">
+<!-- Top Search & Filter Floating Hub -->
+<div class="px-margin pt-space-xs pb-space-sm z-20 flex flex-col gap-2.5">
+<!-- Search Bar with Warm Tactile Elevation -->
+<div class="flex items-center gap-space-sm">
+<div class="flex-1 flex items-center bg-surface-container-lowest rounded-full px-3.5 py-2.5 shadow-[0_8px_20px_rgba(19,62,46,0.06)]">
+<span class="material-symbols-outlined text-[20px] text-primary-container shrink-0">search</span>
+<input class="w-full bg-transparent px-2 font-body-md text-body-sm text-on-surface placeholder:text-outline focus:outline-none" placeholder="Search Indiranagar, 100ft Rd, Koramangala..." type="text" value="12th Main, Indiranagar"/>
+<button aria-label="Clear search" class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+<!-- Filter Controls Shortcut -->
+<button aria-label="Tune search filters" class="w-11 h-11 rounded-full bg-primary-container text-surface flex items-center justify-center shadow-[0_8px_20px_rgba(19,62,46,0.12)] shrink-0 active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px] text-secondary-container">tune</span>
+</button>
+</div>
+<!-- Scrollable Curated Filter Pills -->
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-margin px-margin">
+<!-- Active Pill with Lime Accent -->
+<button class="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-secondary-container text-primary-container font-label-lg text-label-md shadow-sm transition-transform active:scale-95" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+<span>Available Now</span>
+</button>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm hover:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px] text-primary-container">ev_station</span>
+<span>Type-2 AC</span>
+</button>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm hover:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px] text-secondary">flash_on</span>
+<span>CCS2 Fast (>25kW)</span>
+</button>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm hover:bg-surface-container transition-colors" type="button">
+<span>< ₹15/kWh</span>
+</button>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm hover:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px] text-amber-600" style="font-variation-settings: 'FILL' 1;">star</span>
+<span>4.5★+</span>
+</button>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm hover:bg-surface-container transition-colors" type="button">
+<span>< 2 km</span>
+</button>
+</div>
+</div>
+<!-- Interactive Stylized Bengaluru Neighborhood Map -->
+<div class="relative w-full h-[320px] bg-surface-container-high overflow-hidden select-none">
+<!-- Detailed Vector Map Canvas (Indiranagar / Bengaluru East Grid) -->
+<svg class="absolute inset-0 w-full h-full" fill="none" preserveaspectratio="xMidYMid slice" viewbox="0 0 420 320" xmlns="http://www.w3.org/2000/svg">
+<!-- Ground Parcels / Urban Fabric -->
+<rect fill="#ECE7DE" height="320" width="420"></rect>
+<!-- Quiet Residential Blocks -->
+<rect fill="#F4EFE6" height="65" opacity="0.9" rx="8" width="85" x="20" y="15"></rect>
+<rect fill="#F4EFE6" height="70" opacity="0.9" rx="8" width="130" x="120" y="25"></rect>
+<rect fill="#F4EFE6" height="90" opacity="0.9" rx="8" width="135" x="270" y="10"></rect>
+<rect fill="#F4EFE6" height="95" opacity="0.9" rx="8" width="105" x="15" y="105"></rect>
+<rect fill="#F4EFE6" height="85" opacity="0.9" rx="8" width="100" x="140" y="120"></rect>
+<rect fill="#F4EFE6" height="80" opacity="0.9" rx="8" width="145" x="260" y="125"></rect>
+<rect fill="#F4EFE6" height="85" opacity="0.9" rx="8" width="90" x="25" y="225"></rect>
+<rect fill="#F4EFE6" height="80" opacity="0.9" rx="8" width="115" x="135" y="230"></rect>
+<rect fill="#F4EFE6" height="85" opacity="0.9" rx="8" width="130" x="270" y="225"></rect>
+<!-- Defence Colony Green Park Belt -->
+<path d="M 285 30 C 310 28, 360 40, 385 55 C 375 80, 330 90, 290 75 Z" fill="#D3DEC9" opacity="0.85"></path>
+<circle cx="330" cy="55" fill="#3D6754" opacity="0.3" r="4"></circle>
+<circle cx="345" cy="62" fill="#3D6754" opacity="0.35" r="6"></circle>
+<circle cx="315" cy="50" fill="#3D6754" opacity="0.3" r="5"></circle>
+<!-- Secondary Streets / Cross Roads -->
+<path d="M 0 95 L 420 105" stroke="#FFFFFF" stroke-linecap="round" stroke-width="9"></path>
+<path d="M 0 215 L 420 215" stroke="#FFFFFF" stroke-linecap="round" stroke-width="8"></path>
+<path d="M 125 0 L 125 320" stroke="#FFFFFF" stroke-linecap="round" stroke-width="8"></path>
+<path d="M 255 0 L 255 320" stroke="#FFFFFF" stroke-linecap="round" stroke-width="8"></path>
+<!-- 100ft Road Arterial Avenue (Diagonal with soft median) -->
+<path d="M -20 280 L 440 30" stroke="#DFD7C7" stroke-linecap="square" stroke-width="16"></path>
+<path d="M -20 280 L 440 30" stroke="#FFFFFF" stroke-linecap="square" stroke-width="12"></path>
+<path d="M -20 280 L 440 30" opacity="0.6" stroke="#CAEE34" stroke-dasharray="8 8" stroke-width="2"></path>
+<!-- 12th Main Road -->
+<path d="M 185 0 L 185 320" stroke="#FFFFFF" stroke-linecap="square" stroke-width="10"></path>
+<!-- Street Label Typography in Canvas -->
+<text fill="#8F9891" font-family="'Plus Jakarta Sans', sans-serif" font-size="8" font-weight="700" letter-spacing="1" x="192" y="55">12TH MAIN RD</text>
+<text fill="#8F9891" font-family="'Plus Jakarta Sans', sans-serif" font-size="8" font-weight="700" letter-spacing="0.5" x="28" y="90">DEFENCE COLONY</text>
+<text fill="#717974" font-family="'Plus Jakarta Sans', sans-serif" font-size="9" font-weight="800" letter-spacing="1.2" transform="rotate(-30 280 165)" x="280" y="165">100 FT ROAD</text>
+<!-- User's Live Pulse / Vehicle Marker -->
+<circle cx="85" cy="180" fill="#133E2E" opacity="0.12" r="16"></circle>
+<circle cx="85" cy="180" fill="#133E2E" r="8"></circle>
+<circle cx="85" cy="180" fill="#CAEE34" r="3.5"></circle>
+<!-- Radiating field beam -->
+<path d="M 85 180 L 105 145 A 35 35 0 0 0 65 145 Z" fill="url(#userBeam)" opacity="0.25"></path>
+<defs>
+<lineargradient gradientunits="userSpaceOnUse" id="userBeam" x1="85" x2="85" y1="180" y2="145">
+<stop stop-color="#133E2E"></stop>
+<stop offset="1" stop-color="#133E2E" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+<!-- Map Pins Overlay (Tactile Price Badges) -->
+<!-- Pin 1: Selected Featured Station (Green Villa Driveway) -->
+<div class="absolute left-[44%] top-[28%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-10 transition-transform active:scale-95" id="pin-greenvilla">
+<!-- Selected Halo Pulse -->
+<div class="absolute -inset-2 bg-secondary-container/40 rounded-full blur-[6px] animate-pulse"></div>
+<!-- Pill Shape Container -->
+<div class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container text-surface shadow-[0_6px_16px_rgba(19,62,46,0.3)]">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-ping absolute left-2"></span>
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="font-label-lg text-label-md text-surface tracking-tight font-extrabold">₹14.00<span class="text-[10px] font-normal text-primary-fixed-dim">/u</span></span>
+</div>
+<!-- Pointer Tip -->
+<div class="w-2.5 h-2.5 bg-primary-container rotate-45 -mt-1 rounded-[1px]"></div>
+</div>
+<!-- Pin 2: Sobha Lavender (HAL 2nd Stage) -->
+<div class="absolute left-[78%] top-[45%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer opacity-95 hover:opacity-100 transition-transform active:scale-95">
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest text-primary shadow-[0_4px_12px_rgba(19,62,46,0.12)]">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="font-label-lg text-[11px] font-bold">₹16.50</span>
+</div>
+<div class="w-2 h-2 bg-surface-container-lowest rotate-45 -mt-1 shadow-sm"></div>
+</div>
+<!-- Pin 3: Budget Driveway Charger (Defence Colony) -->
+<div class="absolute left-[20%] top-[34%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer opacity-90 hover:opacity-100 transition-transform active:scale-95">
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest text-primary shadow-[0_4px_12px_rgba(19,62,46,0.12)]">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-700"></span>
+<span class="font-label-lg text-[11px] font-bold">₹12.00</span>
+</div>
+<div class="w-2 h-2 bg-surface-container-lowest rotate-45 -mt-1 shadow-sm"></div>
+</div>
+<!-- Pin 4: Fast DC Hub near 100ft Rd -->
+<div class="absolute left-[62%] top-[72%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer opacity-85 hover:opacity-100 transition-transform active:scale-95">
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest text-primary shadow-[0_4px_12px_rgba(19,62,46,0.12)]">
+<span class="material-symbols-outlined text-[12px] text-secondary">bolt</span>
+<span class="font-label-lg text-[11px] font-bold">₹19.00</span>
+</div>
+<div class="w-2 h-2 bg-surface-container-lowest rotate-45 -mt-1 shadow-sm"></div>
+</div>
+<!-- Floating Map Control Buttons -->
+<div class="absolute right-margin bottom-3 flex flex-col gap-2 z-10">
+<!-- Recenter GPS Button -->
+<button aria-label="Recenter location" class="w-10 h-10 rounded-full bg-surface-container-lowest text-primary-container shadow-[0_6px_16px_rgba(19,62,46,0.15)] flex items-center justify-center hover:bg-surface transition-colors active:scale-90" type="button">
+<span class="material-symbols-outlined text-[20px]">my_location</span>
+</button>
+<!-- Map / List Switch Toggle -->
+<div class="flex items-center bg-surface-container-lowest/95 backdrop-blur-md p-1 rounded-full shadow-[0_6px_16px_rgba(19,62,46,0.12)]">
+<button aria-label="Map view active" class="w-8 h-8 rounded-full bg-primary-container text-surface flex items-center justify-center shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">map</span>
+</button>
+<button aria-label="Switch to list view" class="w-8 h-8 rounded-full text-on-surface-variant flex items-center justify-center hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+</button>
+</div>
+</div>
+<!-- Map Legend Tiny Pip -->
+<div class="absolute left-margin bottom-3 px-2.5 py-1 rounded-full bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface-variant font-label-md text-[11px] flex items-center gap-1.5 shadow-sm">
+<span class="w-2 h-2 rounded-full bg-secondary-container border border-primary-container"></span>
+<span class="font-medium">Selected Pin</span>
+</div>
+</div>
+<!-- Discovering Nearby Chargers Floating Sheet Container -->
+<div class="px-margin -mt-3 z-30 flex flex-col gap-space-md">
+<!-- Grab Notch & Quick Heading -->
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-primary tracking-tight">Nearby Chargers</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed-dim text-on-primary-fixed font-label-md text-label-caps">12 NEARBY</span>
+</div>
+<button class="font-label-lg text-label-md text-primary flex items-center gap-0.5 hover:underline" type="button">
+        View all (28)
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<!-- Card 1: Selected / Featured Station (Green Villa Driveway) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-[0_8px_24px_rgba(19,62,46,0.08)] flex flex-col gap-3.5 transition-all">
+<!-- Card Header: Visual Thumbnail + Station Meta -->
+<div class="flex items-start gap-3">
+<!-- Charger Spot Real Photo Placeholder -->
+<div class="relative w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Sunlit residential driveway in Indiranagar Bengaluru with clean beige paving stones, lush green Monstera plants, and a wall-mounted modern white electric vehicle charger box with green status light glowing softly in warm natural morning light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnFNCkYzq7ktT2NxT_Tz0xzjzhh9cgY7prI0CqLzk1Sf8Al88767gk1vZjeKo3ONq9Ncpotd0LIdYGRWQzTjI4IyFqKPrF_39pmnItE7x-ycsrxHs3HmZt-h5w551H5D2zePgOk72dEnlvnq960_2BnWpesAaq3TukoGdBdt_p7ITDe4RbAi1JvRlwESMJMNDWiMydtfXQsgK4voWtj4gq8_vXMTMlxN7Nd6PQVKqcE9S_UuiRus-n"/>
+<div class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-primary-container/85 backdrop-blur-sm text-secondary-container font-label-md text-[10px] font-bold">
+            7.4 kW
+          </div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h2 class="font-title-md text-title-md text-on-surface truncate">Green Villa Driveway</h2>
+<button aria-label="Save to favorites" class="text-on-surface-variant hover:text-error transition-colors p-1" type="button">
+<span class="material-symbols-outlined text-[20px]">bookmark_border</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate mt-0.5">
+            12th Main Indiranagar • 0.8 km away
+          </p>
+<div class="flex items-center gap-2 mt-1.5">
+<div class="flex items-center gap-1 text-on-surface font-label-lg text-label-md">
+<span class="material-symbols-outlined text-[15px] text-amber-600" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-bold">4.9</span>
+<span class="text-outline font-normal">(42)</span>
+</div>
+<span class="text-outline-variant">•</span>
+<span class="font-label-md text-label-md text-secondary font-semibold">Residential Superhost</span>
+</div>
+</div>
+</div>
+<!-- Quick Specs Grid (3 Micro Architectural Bento Boxes) -->
+<div class="grid grid-cols-3 gap-2">
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Speed</span>
+<div class="flex items-baseline gap-0.5 mt-1">
+<span class="font-title-md text-title-md text-primary font-bold">7.4</span>
+<span class="font-label-md text-label-md text-on-surface-variant">kW AC</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Tariff</span>
+<div class="flex items-baseline gap-0.5 mt-1">
+<span class="font-title-md text-title-md text-primary font-bold">₹14</span>
+<span class="font-label-md text-label-md text-on-surface-variant">/kWh</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Availability</span>
+<div class="flex items-baseline gap-1 mt-1 truncate">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed shrink-0 self-center"></span>
+<span class="font-label-lg text-label-md text-on-surface font-semibold truncate">05:30 PM</span>
+</div>
+</div>
+</div>
+<!-- Host Hospitality & Security Pill -->
+<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container-low/70">
+<div class="w-6 h-6 rounded-full bg-primary-container text-surface flex items-center justify-center font-label-md text-[11px] font-bold">
+          R
+        </div>
+<p class="font-body-sm text-body-sm text-on-surface truncate flex-1">
+<span class="font-semibold">Superhost Rohan:</span> Gated parking with CCTV & covered shade
+        </p>
+<span class="material-symbols-outlined text-[16px] text-secondary">verified</span>
+</div>
+<!-- CTA Action Row -->
+<div class="flex items-center gap-2 pt-0.5">
+<button class="flex-1 h-12 rounded-lg bg-secondary-container text-primary-container font-label-lg text-label-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed transition-colors active:scale-[0.99] shadow-sm" type="button">
+<span>Book Slot & Details</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<button aria-label="Navigate to station" class="w-12 h-12 rounded-lg bg-surface-container text-primary-container flex items-center justify-center hover:bg-surface-container-high transition-colors active:scale-95 shrink-0" type="button">
+<span class="material-symbols-outlined text-[20px]">directions</span>
+</button>
+</div>
+</div>
+<!-- Card 2: Secondary Nearby Option (Sobha Lavender) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-[0_4px_16px_rgba(19,62,46,0.04)] flex flex-col gap-3 transition-all hover:bg-surface-container-lowest/90 cursor-pointer">
+<div class="flex items-start justify-between gap-3">
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-primary-container font-label-md text-[10px] font-bold uppercase">Ready to Plug</span>
+<span class="font-label-md text-label-md text-outline">1.4 km</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface truncate mt-1">Sobha Lavender Basement Bay</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">HAL 2nd Stage • 11 kW Type-2 Fast</p>
+</div>
+<div class="text-right shrink-0">
+<div class="font-title-md text-title-md text-primary font-bold">₹16.50</div>
+<div class="font-body-sm text-[11px] text-outline">per unit</div>
+</div>
+</div>
+<!-- Station Amenities Badges -->
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container text-on-surface-variant font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">local_parking</span>
+          Basement B1-14
+        </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container text-on-surface-variant font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">nest_doorbell_visitor</span>
+          Security Pass Provided
+        </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container text-on-surface-variant font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">wifi</span>
+          Free Guest Wi-Fi
+        </span>
+</div>
+</div>
+<!-- Card 3: Sneak peek community eco-host -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-[0_4px_16px_rgba(19,62,46,0.04)] flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[22px]">solar_power</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-lg text-label-lg text-on-surface truncate">The Courtyard Solar Hub</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">100% Rooftop Solar • ₹12.00/kWh</p>
+</div>
+</div>
+<div class="shrink-0">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container text-primary font-label-md text-label-md hover:bg-surface-variant transition-colors" type="button">
+          Hold Bay
+        </button>
+</div>
+</div>
+<!-- Neighborhood Activity Summary Banner -->
+<div class="bg-primary-container text-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center gap-3 mb-2">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-primary-container flex items-center justify-center shrink-0 font-bold">
+<span class="material-symbols-outlined text-[20px]">energy_savings_leaf</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-lg text-label-lg text-surface tracking-tight">28 community chargers available</p>
+<p class="font-body-sm text-body-sm text-primary-fixed-dim">Over 480 kWh shared this week across East Bengaluru.</p>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Simple micro-interaction for map pins feedback
+  document.addEventListener('DOMContentLoaded', () => {
+    const featuredPin = document.getElementById('pin-greenvilla');
+    if (featuredPin) {
+      featuredPin.addEventListener('click', () => {
+        featuredPin.classList.add('scale-105');
+        setTimeout(() => featuredPin.classList.remove('scale-105'), 200);
+      });
+    }
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_20px_rgba(19,62,46,0.06)]" data-active-classes="text-primary-container"><div class="flex justify-around items-center h-16 px-space-xs"><a aria-current="page" class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 transition-colors text-primary-container" data-path="explore-map" href="#"><span class="material-symbols-outlined text-[24px]">explore</span><span class="font-label-md text-[11px] leading-tight">Explore</span></a><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 text-on-surface-variant transition-colors relative" data-path="bookings-history" href="#"><span class="material-symbols-outlined text-[24px]">calendar_today</span><span class="font-label-md text-[11px] leading-tight">Bookings</span><span class="absolute top-1.5 right-3.5 w-2 h-2 rounded-full bg-secondary-fixed ring-2 ring-surface"></span></a><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 text-on-surface-variant transition-colors" data-path="active-session" href="#"><span class="material-symbols-outlined text-[24px]">offline_bolt</span><span class="font-label-md text-[11px] leading-tight">Activity</span></a><a class="flex flex-col items-center justify-center gap-0.5 w-16 h-12 text-on-surface-variant transition-colors" data-path="driver-profile" href="#"><span class="material-symbols-outlined text-[24px]">person</span><span class="font-label-md text-[11px] leading-tight">Profile</span></a></div></nav></body></html>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ShieldCheck, UserCheck, Zap } from 'lucide-react';
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   signInWithEmailAndPassword,
   signInWithPopup,
 } from 'firebase/auth';
@@ -56,125 +57,195 @@ export const AuthPage: React.FC<AuthPageProps> = ({ redirectTo = ROUTES.provider
     }
   };
 
+  const handleDemoAuth = async () => {
+    setError('');
+    setPending(true);
+    try {
+      await signInAnonymously(auth);
+      navigateTo(redirectTo);
+    } catch (authError) {
+      setError(describeAuthError(authError));
+    } finally {
+      setPending(false);
+    }
+  };
+
   const switchMode = () => {
     setMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
     setError('');
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF7F0] font-body text-[#1c1c18] selection:bg-[#D2F24E] selection:text-[#0A261C]">
-      <header className="border-b border-[#DFD9CC] bg-[#FAF7F0]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => navigateTo(ROUTES.landing)}
-            className="flex cursor-pointer items-center gap-2.5"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A261C] shadow-sm">
-              <Zap size={18} className="text-[#D2F24E]" />
-            </div>
-            <span className="font-sans text-[18px] font-extrabold leading-none tracking-tight text-[#0A261C]">
-              ChargeShare
+    <div className="provider-portal flex min-h-screen flex-col bg-[#FAF8F7] font-body text-[#111111] selection:bg-black selection:text-white">
+      {/* Top Masthead Header */}
+      <header className="fixed top-0 w-full z-50 bg-[#141414] text-white border-b border-neutral-800">
+        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-5">
+          <div className="flex items-center gap-2.5">
+            <span className="font-sans text-sm uppercase tracking-[0.16em] font-bold text-white">
+              CHARGESHARE
             </span>
-          </button>
+            <span className="font-sans text-[10px] text-white/80 font-medium tracking-widest uppercase bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
+              HOST
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => navigateTo(ROUTES.landing)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-[#DFD9CC] bg-white px-3 py-1.5 text-[12px] font-bold text-[#0A261C] transition-colors hover:bg-[#F2EFE8]"
+            className="flex cursor-pointer items-center gap-1.5 rounded border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-[11px] font-sans font-semibold uppercase tracking-wider text-neutral-300 transition-all hover:bg-neutral-800 hover:text-white"
           >
-            <ArrowLeft size={15} />
-            <span>Back to home</span>
+            <ArrowLeft size={13} />
+            <span>Explore Map</span>
           </button>
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-10">
+      <main className="flex flex-1 items-center justify-center px-4 pt-24 pb-12">
         <div className="w-full max-w-md">
-          <div className="mb-5 flex flex-col items-center text-center">
-            <span className="rounded-full bg-[#133E2E] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#D2F24E]">
-              Provider Access
+          <div className="mb-6 flex flex-col items-center text-center">
+            <span className="rounded bg-black px-2.5 py-0.5 text-[10.5px] font-sans font-semibold uppercase tracking-wider text-white">
+              HOST &amp; PROVIDER PORTAL
             </span>
-            <h1 className="mt-3 font-sans text-[26px] font-extrabold leading-tight tracking-tight text-[#0A261C]">
-              {mode === 'signup' ? 'Create your provider account' : 'Sign in to your provider dashboard'}
+            <h1 className="mt-3 font-sans text-[28px] font-bold leading-tight tracking-tight text-black">
+              {mode === 'signup' ? 'Create Host Account' : 'Welcome Back'}
             </h1>
-            <p className="mt-2 text-[13px] leading-relaxed text-[#414944]">
+            <p className="mt-1 text-xs text-[#636563]">
               {mode === 'signup'
-                ? 'Set up an account to list your charging bay and manage incoming booking requests.'
-                : 'Use the same account you use across ChargeShare to manage your charging bay.'}
+                ? 'Join India’s community residential EV charging network.'
+                : 'Sign in to access your bay telemetry, bookings and tariffs.'}
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-[#DFD9CC] bg-white p-5 shadow-[0_2px_8px_rgba(19,62,46,0.04)]">
+          <div className="rounded-xl border border-[#E2E5E5] bg-white p-6 sm:p-7 shadow-[0_2px_10px_rgba(0,0,0,0.02)] space-y-4">
+            {/* Quick Demo Access Button */}
+            <button
+              type="button"
+              onClick={handleDemoAuth}
+              disabled={pending}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded bg-black py-2.5 text-xs font-sans font-semibold uppercase tracking-wider text-white transition-all hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <UserCheck size={15} />
+              <span>Instant Access as Verified Host</span>
+            </button>
+
             <button
               type="button"
               onClick={handleGoogleAuth}
               disabled={pending}
-              className="w-full cursor-pointer rounded-xl border border-[#DFD9CC] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0A261C] transition-colors hover:bg-[#FAF7F0] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded border border-[#E2E5E5] bg-[#F5F3F1] py-2.5 text-xs font-sans font-semibold uppercase tracking-wider text-[#111111] transition-all hover:bg-[#EBE7E5] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Continue with Google
+              <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              <span>Continue with Google</span>
             </button>
 
-            <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wider text-[#717974]">
-              <span className="h-px flex-1 bg-[#DFD9CC]" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-[#DFD9CC]" />
+            <div className="relative my-3 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#EBE7E5]" />
+              </div>
+              <span className="relative bg-white px-2.5 text-[9.5px] font-sans font-semibold uppercase tracking-[0.14em] text-[#636563]">
+                or email
+              </span>
             </div>
 
-            <form onSubmit={handleEmailAuth} noValidate className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="provider-email" className="text-[12px] font-bold text-[#0A261C]">
-                  Email address
+            <form onSubmit={handleEmailAuth} className="space-y-3.5">
+              <div className="space-y-1">
+                <label
+                  htmlFor="auth-email"
+                  className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-[#636563]"
+                >
+                  Email Address
                 </label>
                 <input
-                  id="provider-email"
+                  id="auth-email"
                   type="email"
+                  required
                   autoComplete="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.in"
-                  className="w-full rounded-xl border border-[#DFD9CC] bg-[#FAF7F0] px-3 py-2.5 text-[13px] text-[#1c1c18] outline-none transition-colors focus:border-[#133E2E] focus:bg-white"
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full rounded border border-[#E2E5E5] bg-[#F5F3F1] px-3.5 py-2.5 text-xs font-sans text-[#111111] outline-none transition-all placeholder:text-[#747878] focus:border-black focus:bg-white"
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label htmlFor="provider-password" className="text-[12px] font-bold text-[#0A261C]">
+              <div className="space-y-1">
+                <label
+                  htmlFor="auth-password"
+                  className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-[#636563]"
+                >
                   Password
                 </label>
                 <input
-                  id="provider-password"
+                  id="auth-password"
                   type="password"
+                  required
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full rounded-xl border border-[#DFD9CC] bg-[#FAF7F0] px-3 py-2.5 text-[13px] text-[#1c1c18] outline-none transition-colors focus:border-[#133E2E] focus:bg-white"
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded border border-[#E2E5E5] bg-[#F5F3F1] px-3.5 py-2.5 text-xs font-sans text-[#111111] outline-none transition-all placeholder:text-[#747878] focus:border-black focus:bg-white"
                 />
               </div>
 
               {error && (
-                <p className="rounded-xl bg-[#ffdad6] px-3 py-2 text-[12px] font-medium text-[#ba1a1a]">
+                <div className="rounded border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 font-sans">
                   {error}
-                </p>
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={pending}
-                className="w-full cursor-pointer rounded-xl border border-[#b2d40f] bg-[#D2F24E] px-4 py-2.5 text-[13px] font-extrabold text-[#133E2E] shadow-sm transition-colors hover:bg-[#caee34] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full cursor-pointer rounded border border-black bg-white py-2.5 text-xs font-sans font-semibold uppercase tracking-wider text-black transition-all hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {pending ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Sign in'}
+                {pending
+                  ? 'Connecting…'
+                  : mode === 'signup'
+                    ? 'Register Email'
+                    : 'Sign In with Email'}
               </button>
             </form>
 
-            <button
-              type="button"
-              onClick={switchMode}
-              className="cursor-pointer text-center text-[12px] font-semibold text-[#133E2E] underline underline-offset-4"
-            >
-              {mode === 'signup'
-                ? 'Already have an account? Sign in'
-                : 'New to ChargeShare? Create an account'}
-            </button>
+            <div className="pt-2 text-center border-t border-[#EBE7E5]">
+              <button
+                type="button"
+                onClick={switchMode}
+                className="cursor-pointer text-xs font-sans text-[#636563] transition-all hover:text-black"
+              >
+                {mode === 'signup' ? (
+                  <>
+                    Already have an account?{' '}
+                    <span className="font-bold text-black underline underline-offset-2">Sign in</span>
+                  </>
+                ) : (
+                  <>
+                    New to ChargeShare?{' '}
+                    <span className="font-bold text-black underline underline-offset-2">List your charger</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Backend connectivity indicator */}
+            <div className="pt-2 flex items-center justify-center gap-1.5 text-[10px] text-[#636563] font-sans">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Backend Connected · Firestore chargeshare-hack</span>
+            </div>
           </div>
         </div>
       </main>

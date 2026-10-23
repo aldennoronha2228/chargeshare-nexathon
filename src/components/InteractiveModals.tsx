@@ -321,6 +321,7 @@ interface SignInAndBookingsModalProps {
   onClose: () => void;
   confirmedBookings: ConfirmedDemoBooking[];
   onCancelBooking: (bookingId: string) => void;
+  onOpenEditProfile: () => void;
 }
 
 export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
@@ -328,6 +329,7 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
   onClose,
   confirmedBookings,
   onCancelBooking,
+  onOpenEditProfile,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -484,13 +486,22 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
         ) : (
           <div className="p-3.5 bg-[#173D2C] text-[#F6F3E9] rounded text-xs flex items-center justify-between gap-3">
             <span className="truncate">Signed in as {displayName}</span>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="text-[#D8F36A] underline cursor-pointer shrink-0"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => { onClose(); onOpenEditProfile(); }}
+                className="text-[#D8F36A] underline cursor-pointer"
+              >
+                Edit Profile
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="text-[#D8F36A] underline cursor-pointer"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         )}
 

@@ -202,12 +202,14 @@ export interface ProviderChargerFormInput {
   city: Exclude<IndianCity, 'All Cities'>;
   connector: ConnectorType;
   powerKw: number;
-  pricePerKwh: number;
+  price: number;
+  pricingType: 'per_kwh' | 'per_session';
   availableFrom: string;
   availableTo: string;
   accessNotes: string;
   hasChargerPhoto: boolean;
   hasSpacePhoto: boolean;
+  compatibleVehicles: string[];
 }
 
 /** Validates the provider "add a charger" questionnaire, including both photo uploads. */
@@ -230,8 +232,8 @@ export function validateProviderChargerForm(input: ProviderChargerFormInput): Va
     errors.powerKw = 'Charger power rating must be between 2 kW and 100 kW.';
   }
 
-  if (!Number.isFinite(input.pricePerKwh) || input.pricePerKwh < 5 || input.pricePerKwh > 40) {
-    errors.pricePerKwh = 'Set a price between ₹5/kWh and ₹40/kWh.';
+  if (!Number.isFinite(input.price) || input.price < 5 || input.price > 500) {
+    errors.price = 'Set a reasonable price.';
   }
 
   if (!input.availableFrom || !input.availableTo) {
@@ -252,10 +254,27 @@ export function validateProviderChargerForm(input: ProviderChargerFormInput): Va
     errors.spacePhoto = 'Upload a photo of the space where the car will be parked and charged.';
   }
 
+  if (input.compatibleVehicles.length === 0) {
+    errors.compatibleVehicles = 'Select at least one compatible vehicle type.';
+  }
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,
   };
+}
+
+export type SortKey = 'distance' | 'price' | 'speed' | 'rating';
+
+export function sortChargers(chargers: ChargerListing[], by: SortKey): ChargerListing[] {
+  const sorted = [...chargers];
+  switch (by) {
+    case 'distance': return sorted.sort((a, b) => a.distanceKm - b.distanceKm);
+    case 'price':    return sorted.sort((a, b) => a.pricePerKwh - b.pricePerKwh);
+    case 'speed':    return sorted.sort((a, b) => b.powerKw - a.powerKw);
+    case 'rating':   return sorted.sort((a, b) => b.rating - a.rating);
+    default:         return sorted;
+  }
 }
 
 export type ChapterKey =

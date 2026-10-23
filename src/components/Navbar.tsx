@@ -1,18 +1,30 @@
 import React, { useState } from 'react';
-import { Menu, X, Zap, ArrowUpRight, Download } from 'lucide-react';
+import { Menu, X, Zap, ArrowUpRight, Download, User } from 'lucide-react';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { downloadProjectZip } from '../utils/projectZipDownload';
+import { ROUTES, navigateTo } from '../utils/appRoute';
+import { ProfileMenu, type ProfileMenuView } from './ProfileMenu';
 
 interface NavbarProps {
+  /** Signed-in user, supplied by App so the bar follows a single auth listener. */
+  user: FirebaseUser | null;
+  /** Entry point of the Find-a-Charger flow (login when signed out). */
   onExploreChargers: () => void;
   onOpenHostModal: () => void;
   onOpenSignInModal: () => void;
+  onOpenProfile: (view: ProfileMenuView) => void;
+  /** Deep-links into a landing narrative section from any route. */
+  onNavigateSection: (sectionId: string) => void;
   activeReservationCount: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  user,
   onExploreChargers,
   onOpenHostModal,
   onOpenSignInModal,
+  onOpenProfile,
+  onNavigateSection,
   activeReservationCount,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +33,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleMobileNav = (callback?: () => void) => {
     setMobileMenuOpen(false);
     if (callback) callback();
+  };
+
+  const goHome = (event: React.MouseEvent) => {
+    event.preventDefault();
+    navigateTo(ROUTES.landing);
   };
 
   return (
@@ -68,64 +85,79 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       )}
 
-      {/* Main Navigation — Strict 3-Zone Contract */}
-      <header className="max-w-[1360px] mx-auto flex items-center justify-between gap-2 sm:gap-6 lg:gap-8 px-3 sm:px-8 py-3">
-        {/* Zone 1: Single-line Brand Wordmark & Custom Mark */}
-        <a
-          href="#"
-          className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold tracking-tight text-[#173D2C] font-display whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#173D2C]"
-        >
-          <span className="w-7 h-7 rounded bg-[#173D2C] text-[#D8F36A] inline-flex items-center justify-center shrink-0">
-            <Zap className="w-4 h-4 fill-current" />
-          </span>
-          ChargeShare
-        </a>
+      {/* Main Navigation — brand + profile control on the left, links + CTA on the right */}
+      <header className="max-w-[1360px] mx-auto flex items-center justify-between gap-2 sm:gap-6 px-3 sm:px-8 py-3">
+        {/* Left zone: Brand wordmark, then the signed-in profile control */}
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <a
+            href={ROUTES.landing}
+            onClick={goHome}
+            className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold tracking-tight text-[#173D2C] font-display whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#173D2C]"
+          >
+            <span className="w-7 h-7 rounded bg-[#173D2C] text-[#D8F36A] inline-flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 fill-current" />
+            </span>
+            ChargeShare
+          </a>
 
-        {/* Zone 2: 5 Single-Line Navigation Links */}
-        <nav
-          aria-label="Primary Navigation"
-          className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#22251F]"
-        >
-          <a
-            href="#chapter-connect"
-            className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1"
-          >
-            Find Chargers
-          </a>
-          <button
-            type="button"
-            onClick={onOpenHostModal}
-            className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer"
-          >
-            Become a Provider
-          </button>
-          <a
-            href="#how-it-works"
-            className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1"
-          >
-            How It Works
-          </a>
-          <a
-            href="#safety"
-            className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1"
-          >
-            Safety
-          </a>
-          <button
-            type="button"
-            onClick={onOpenSignInModal}
-            className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer"
-          >
-            {activeReservationCount > 0 ? `Sign In (${activeReservationCount})` : 'Sign In'}
-          </button>
-        </nav>
+          {user && <ProfileMenu user={user} onOpenProfile={onOpenProfile} />}
+        </div>
 
-        {/* Zone 3: 1 Primary CTA Button (+ Mobile Menu Button on <lg) */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Right zone: primary navigation links, CTA and mobile menu button */}
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-7 shrink-0">
+          <nav
+            aria-label="Primary Navigation"
+            className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#22251F]"
+          >
+            <button
+              type="button"
+              onClick={onExploreChargers}
+              className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            >
+              Find Chargers
+            </button>
+            <button
+              type="button"
+              onClick={onOpenHostModal}
+              className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            >
+              Become a Provider
+            </button>
+            <a
+              href="#how-it-works"
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigateSection('how-it-works');
+              }}
+              className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            >
+              How It Works
+            </a>
+            <a
+              href="#safety"
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigateSection('safety');
+              }}
+              className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            >
+              Safety
+            </a>
+            {!user && (
+              <button
+                type="button"
+                onClick={onOpenSignInModal}
+                className="hover:text-[#173D2C] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 py-1 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+              >
+                {activeReservationCount > 0 ? `Sign In (${activeReservationCount})` : 'Sign In'}
+              </button>
+            )}
+          </nav>
+
           <button
             type="button"
             onClick={onExploreChargers}
-            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
+            className="hidden sm:inline-block px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
           >
             Explore Chargers
           </button>
@@ -136,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-nav-drawer"
             aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="lg:hidden inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] transition-colors shrink-0"
+            className="lg:hidden inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -150,54 +182,74 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="lg:hidden border-t border-[#D8D5CA] bg-[#F6F3E9] px-4 pt-3 pb-6 space-y-3"
         >
           <nav aria-label="Mobile Navigation" className="flex flex-col space-y-1">
-            <a
-              href="#chapter-connect"
-              onClick={() => handleMobileNav()}
-              className="px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
+            <button
+              type="button"
+              onClick={() => handleMobileNav(onExploreChargers)}
+              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded cursor-pointer"
             >
               Find Chargers
-            </a>
+            </button>
             <button
               type="button"
               onClick={() => handleMobileNav(onOpenHostModal)}
-              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
+              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded cursor-pointer"
             >
               Become a Provider
             </button>
-            <a
-              href="#how-it-works"
-              onClick={() => handleMobileNav()}
-              className="px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
-            >
-              How It Works
-            </a>
-            <a
-              href="#safety"
-              onClick={() => handleMobileNav()}
-              className="px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
-            >
-              Safety
-            </a>
             <button
               type="button"
-              onClick={() => handleMobileNav(onOpenSignInModal)}
-              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded"
+              onClick={() => handleMobileNav(() => onNavigateSection('how-it-works'))}
+              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded cursor-pointer"
             >
-              Sign In {activeReservationCount > 0 ? `(${activeReservationCount} Demo Bookings)` : ''}
+              How It Works
             </button>
+            <button
+              type="button"
+              onClick={() => handleMobileNav(() => onNavigateSection('safety'))}
+              className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded cursor-pointer"
+            >
+              Safety
+            </button>
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleMobileNav(() => onOpenProfile('view'))}
+                  className="text-left px-3 py-2.5 text-base font-medium text-[#173D2C] hover:bg-[#EDE8D8] rounded flex items-center gap-2 cursor-pointer"
+                >
+                  <User className="w-4 h-4" />
+                  My Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMobileNav(() => onOpenProfile('edit'))}
+                  className="text-left px-3 py-2.5 text-base font-medium text-[#173D2C] hover:bg-[#EDE8D8] rounded cursor-pointer"
+                >
+                  Edit Profile
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleMobileNav(onOpenSignInModal)}
+                className="text-left px-3 py-2.5 text-base font-medium text-[#22251F] hover:bg-[#EDE8D8] rounded cursor-pointer"
+              >
+                Sign In {activeReservationCount > 0 ? `(${activeReservationCount} Demo Bookings)` : ''}
+              </button>
+            )}
           </nav>
           <div className="pt-2 border-t border-[#D8D5CA] flex flex-col sm:flex-row gap-2.5">
             <button
               type="button"
               onClick={() => handleMobileNav(onExploreChargers)}
-              className="w-full py-2.5 px-4 text-sm font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded text-center"
+              className="w-full py-2.5 px-4 text-sm font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded text-center cursor-pointer"
             >
               Explore Chargers
             </button>
             <button
               type="button"
               onClick={() => handleMobileNav(onOpenHostModal)}
-              className="w-full py-2.5 px-4 text-sm font-semibold text-[#F6F3E9] bg-[#173D2C] rounded text-center"
+              className="w-full py-2.5 px-4 text-sm font-semibold text-[#F6F3E9] bg-[#173D2C] rounded text-center cursor-pointer"
             >
               List Your Charger
             </button>

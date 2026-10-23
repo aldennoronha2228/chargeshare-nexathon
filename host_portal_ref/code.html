@@ -1,0 +1,153 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "tertiary-fixed-dim": "#c8c6c0",
+        "on-secondary-fixed-variant": "#464744",
+        "on-secondary-container": "#626360",
+        "tertiary-container": "#1b1c18",
+        "outline": "#747878",
+        "primary": "#000000",
+        "on-primary-fixed-variant": "#474646",
+        "on-error-container": "#93000a",
+        "on-primary": "#ffffff",
+        "on-primary-container": "#858383",
+        "error-container": "#ffdad6",
+        "outline-variant": "#e2e5e5",
+        "on-surface": "#111111",
+        "on-tertiary-fixed": "#1b1c18",
+        "on-secondary-fixed": "#1b1c1a",
+        "surface-tint": "#5f5e5e",
+        "tertiary": "#000000",
+        "error": "#b91c1c",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-highest": "#e8e6e5",
+        "secondary-container": "#f0edea",
+        "on-error": "#ffffff",
+        "tertiary-fixed": "#e4e2db",
+        "on-tertiary": "#ffffff",
+        "on-tertiary-container": "#85847e",
+        "secondary-fixed": "#e3e2df",
+        "background": "#faf8f7",
+        "on-background": "#111111",
+        "inverse-on-surface": "#f3f0ef",
+        "on-tertiary-fixed-variant": "#474742",
+        "surface": "#faf8f7",
+        "inverse-primary": "#c9c6c5",
+        "on-surface-variant": "#57595a",
+        "primary-container": "#141414",
+        "surface-container-low": "#f5f3f1",
+        "on-primary-fixed": "#1c1b1b",
+        "on-secondary": "#ffffff",
+        "primary-fixed": "#e5e2e1",
+        "surface-container-high": "#ebe7e5",
+        "secondary": "#636563",
+        "primary-fixed-dim": "#c9c6c5",
+        "surface-bright": "#faf8f7",
+        "inverse-surface": "#262626",
+        "surface-dim": "#ded9d7",
+        "surface-variant": "#e9e6e4",
+        "surface-container": "#efece9",
+        "secondary-fixed-dim": "#c7c7c3"
+      },
+      borderRadius: {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "full": "9999px"
+      },
+      spacing: {
+        "space-xl": "2.5rem",
+        "space-xs": "0.25rem",
+        "margin-desktop": "4rem",
+        "space-sm": "0.5rem",
+        "space-md": "1rem",
+        "space-lg": "1.5rem",
+        "margin": "1.25rem",
+        "space-3xl": "6rem",
+        "gutter-desktop": "2.5rem",
+        "space-2xl": "4rem",
+        "gutter": "1.5rem"
+      },
+      fontFamily: {
+        "body-lg": ["Inter", "sans-serif"],
+        "label-md": ["Space Grotesk", "sans-serif"],
+        "headline-md": ["Space Grotesk", "sans-serif"],
+        "headline-lg-mobile": ["Space Grotesk", "sans-serif"],
+        "label-caps": ["Space Grotesk", "sans-serif"],
+        "code-num": ["Space Grotesk", "sans-serif"],
+        "headline-hero": ["Space Grotesk", "sans-serif"],
+        "headline-sm": ["Space Grotesk", "sans-serif"],
+        "headline-lg": ["Space Grotesk", "sans-serif"],
+        "headline-hero-mobile": ["Space Grotesk", "sans-serif"],
+        "body-sm": ["Inter", "sans-serif"],
+        "body-md": ["Inter", "sans-serif"]
+      }
+    }
+  }
+};</script><style>
+@layer base {
+  html, body { width: 100vw; margin: 0; padding: 0; }
+  body { overscroll-behavior: none; }
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px); }
+  .pt-safe { padding-top: max(env(safe-area-inset-top, 0px), 12px); }
+  main > :first-child { margin-top: 0 !important; }
+  main > :last-child { margin-bottom: 0 !important; }
+}
+::-webkit-scrollbar { display: none; }
+body {
+  min-height: max(884px, 100dvh);
+}
+</style></head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 pt-safe bg-primary-container text-white border-b border-neutral-800"><div class="h-14 px-5 flex items-center justify-between"><div class="flex items-center gap-2.5"><span class="font-headline-sm text-sm uppercase tracking-[0.16em] font-bold text-white">CHARGESHARE</span><span class="font-label-caps text-[10px] text-white/80 font-medium tracking-widest uppercase bg-white/10 px-1.5 py-0.5 rounded border border-white/10">HOST</span></div><div class="flex items-center gap-1.5"><button aria-label="Notifications" class="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors relative"><span class="material-symbols-outlined text-[19px]">notifications</span><span class="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-white ring-2 ring-primary-container"></span></button><a class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors" data-path="host-profile" href="#"><div class="w-7 h-7 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white"><span class="material-symbols-outlined text-[16px]">person</span></div></a></div></div></header><main class="flex flex-col relative w-full pt-16 pb-28 px-4 sm:px-5 space-y-6"><section class="bg-primary-container text-on-primary rounded-xl p-5 shadow-sm space-y-4 border border-neutral-800"><div class="flex items-start justify-between gap-3"><div class="space-y-1"><div class="flex items-center gap-2"><h1 class="font-headline-sm text-[1.35rem] leading-tight tracking-tight text-white font-bold">Rohan’s Private Bay</h1></div><p class="font-body-sm text-[12px] text-on-primary-container flex items-center gap-1.5"><span class="">Indiranagar · Bay #01</span><span class="text-white/30">•</span><span class="">7.4 kW Wallbox</span></p></div><div class="cursor-pointer bg-white/10 border border-white/10 px-2.5 py-1 rounded-full flex items-center gap-1.5 shrink-0 select-none active:scale-95 transition-transform" id="statusToggle"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span><span class="font-label-caps text-[10.5px] uppercase text-white tracking-wider font-semibold">Online</span></div></div><div class="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1"><button class="h-7 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-label-caps text-[11px] uppercase tracking-wider font-medium transition-all shrink-0">Pause 2h</button><button class="h-7 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-label-caps text-[11px] uppercase tracking-wider font-medium transition-all shrink-0">Until 20:00</button><button class="h-7 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-label-caps text-[11px] uppercase tracking-wider font-medium transition-all shrink-0 flex items-center gap-1"><span class="">Tariff Settings</span><span class="material-symbols-outlined text-[13px]">arrow_forward</span></button></div></section><section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col space-y-4"><div class="flex items-center justify-between border-b border-surface-container-high pb-3"><div class="flex items-center gap-2"><span class="font-label-caps text-[10.5px] uppercase tracking-wider bg-primary text-on-primary font-semibold px-2 py-0.5 rounded">NEW REQUEST</span><span class="font-code-num text-xs text-secondary font-medium">#4092</span></div><div class="flex items-center gap-1 text-error font-medium text-xs"><span class="material-symbols-outlined text-[15px]">timer</span><span class="font-code-num tracking-wide" id="countdownTimer">Expires in 01:32</span></div></div><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-lg overflow-hidden shrink-0 border border-surface-container-high"><img alt="Guest Avatar" class="w-full h-full object-cover" data-alt="High-contrast black and white editorial portrait of a sophisticated modern Indian man in a minimal tailored jacket, studio lighting, sharp architectural gaze, monochrome luxury." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWzI5Q-G044dSS04gW_rJXZHh6cL-B1lQssojQbhGRUNrVxj0H6iqDh3iZuw2f0eZenEFKIto3eKidU3CAo-yonXKXWQJqnQ945gxdaMqYnFo97VMqZUthlgqOCgJAUxxx2gFtONSS-jcIgeVybM2dMEBRsnZGgNZn52JqyTZi07kZ-L8c6xXJtC01aqhnHqidWzyJfVJ0wKRSHcfX_1-HpuUuBfwWbsTyNpvTuzVECtje6fgxao6-"></div><div><div class="flex items-center gap-1.5"><span class="font-headline-sm text-sm font-bold text-on-surface">Rajesh Varma</span><span class="font-label-caps text-[10px] font-semibold text-secondary flex items-center gap-0.5 ml-0.5">★ 4.9</span></div><span class="font-body-sm text-xs text-secondary block mt-0.5">Tata Nexon EV Max · Dark Edition</span></div></div><div class="text-right pl-2"><span class="font-headline-sm text-base font-bold text-on-surface tracking-tight block">₹390</span><span class="font-label-caps text-[10px] text-secondary uppercase tracking-wider">NET PAYOUT</span></div></div><div class="grid grid-cols-2 gap-3 bg-surface-container-low/70 border border-surface-container-high rounded-lg p-3"><div class="flex flex-col"><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary">REQUESTED SLOT</span><span class="font-code-num text-xs font-semibold text-on-surface mt-1">17:30 – 19:30</span><span class="text-[11px] text-secondary">Today</span></div><div class="flex flex-col border-l border-surface-container-high pl-3"><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary">TARGET ENERGY</span><span class="font-code-num text-xs font-semibold text-on-surface mt-1">~14.5 kWh</span><span class="text-[11px] text-secondary">Est. +65% SoC</span></div></div><div class="grid grid-cols-2 gap-2.5 pt-0.5"><button class="h-10 px-4 rounded border border-surface-container-highest hover:bg-surface-container-low text-on-surface font-label-caps text-xs uppercase tracking-wider font-semibold active:scale-[0.99] transition-all">Decline</button><button class="h-10 px-4 rounded bg-primary text-on-primary font-label-caps text-xs uppercase tracking-wider font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all flex items-center justify-center gap-1"><span class="">Accept &amp; Hold</span><span class="material-symbols-outlined text-[15px]">arrow_forward</span></button></div></section><section class="bg-surface-container-lowest border rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] space-y-4 text-on-surface border-surface-container-high/70"><div class="flex items-center justify-between border-b border-surface-container-high/70 pb-3"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span><span class="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-primary">Dispensing Live</span></div><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary bg-surface-container-low border border-surface-container-high/70 px-2 py-0.5 rounded font-code-num">KA 03 NA 9912</span></div><div class="space-y-1.5"><div class="flex items-baseline justify-between"><div class="flex items-baseline gap-1"><span class="font-headline-hero text-[3rem] font-bold leading-none tracking-tighter text-primary">68</span><span class="font-headline-sm text-lg font-light text-secondary">%</span></div><div class="text-right"><span class="font-label-caps text-[10px] text-secondary uppercase tracking-wider block">Est. Completion</span><span class="font-code-num text-sm font-semibold text-primary">16:45</span></div></div><p class="font-body-sm text-xs text-secondary">Hyundai Ioniq 5 · Level 2 Wallbox Feed</p></div><div class="space-y-1.5 pt-1"><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 68%;"></div></div><div class="flex justify-between font-code-num text-[11px] text-secondary"><span class="">Started 22%</span><span class="">Target 80%</span></div></div><div class="grid grid-cols-3 gap-2 pt-3 border-t border-surface-container-high/70"><div class="flex flex-col"><span class="font-label-caps text-[9.5px] uppercase tracking-wider text-secondary">Flow Rate</span><span class="font-code-num text-xs font-semibold text-primary mt-0.5">7.2 kW</span><span class="text-[10px] text-secondary/70">238V · 30A</span></div><div class="flex flex-col border-l border-surface-container-high/70 pl-2"><span class="font-label-caps text-[9.5px] uppercase tracking-wider text-secondary">Delivered</span><span class="font-code-num text-xs font-semibold text-primary mt-0.5">18.2 kWh</span><span class="text-[10px] text-secondary/70">Active Yield</span></div><div class="flex flex-col border-l border-surface-container-high/70 pl-2"><span class="font-label-caps text-[9.5px] uppercase tracking-wider text-secondary">Current Tab</span><span class="font-code-num text-xs font-semibold text-primary mt-0.5">₹473</span><span class="text-[10px] text-secondary/70">₹26/kWh Flat</span></div></div><div class="grid grid-cols-3 gap-2 pt-1"><button class="h-9 px-2 bg-surface-container-low hover:bg-surface-container-high border border-surface-container-high text-primary rounded font-label-caps text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">lock</span><span class="">Lock Cable</span></button><button class="h-9 px-2 bg-surface-container-low hover:bg-surface-container-high border border-surface-container-high text-primary rounded font-label-caps text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">pause</span><span class="">Pause Feed</span></button><button class="h-9 px-2 bg-white hover:bg-red-950/40 border border-error text-error rounded font-label-caps text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">power_settings_new</span><span class="">Stop</span></button></div></section><section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] space-y-3.5"><div class="flex items-center justify-between"><span class="font-label-caps text-[11px] uppercase tracking-[0.14em] text-secondary font-semibold">Today’s Overview</span><a class="font-label-caps text-[11px] uppercase tracking-wider text-on-surface hover:underline font-semibold flex items-center gap-0.5" href="#"><span class="">Full Report</span><span class="material-symbols-outlined text-[13px]">arrow_forward</span></a></div><div class="grid grid-cols-3 divide-x divide-surface-container-high pt-1"><div class="flex flex-col pr-3"><span class="font-headline-sm text-lg font-bold text-on-surface tracking-tight">₹1,450</span><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary mt-0.5">Net Revenue</span></div><div class="flex flex-col px-3"><span class="font-headline-sm text-lg font-bold text-on-surface tracking-tight">42.4</span><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary mt-0.5">Delivered</span></div><div class="flex flex-col pl-3"><span class="font-headline-sm text-lg font-bold text-on-surface tracking-tight">5.5h</span><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary mt-0.5">Utilization</span></div></div></section><section class="space-y-3"><div class="flex items-center justify-between px-0.5"><span class="font-label-caps text-[11px] uppercase tracking-[0.14em] text-secondary font-semibold">Schedule Timeline</span><span class="font-code-num text-xs text-secondary font-medium">4 Bookings Today</span></div><div class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-surface-container-high overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.02)]"><div class="p-3.5 flex items-center justify-between"><div class="flex items-center gap-3"><span class="font-code-num text-xs font-semibold text-secondary w-10">14:00</span><div><span class="font-body-md text-xs font-semibold text-on-surface block">Kunal S.</span><span class="font-body-sm text-[11px] text-secondary">MG ZS EV · 24.1 kWh</span></div></div><div class="flex items-center gap-2"><span class="font-code-num text-xs font-medium text-on-surface">₹626</span><span class="font-label-caps text-[9.5px] uppercase font-semibold text-secondary bg-surface-container-low px-1.5 py-0.5 rounded border border-surface-container-high">Completed</span></div></div><div class="p-3.5 flex items-center justify-between bg-surface-container-low/50"><div class="flex items-center gap-3"><span class="font-code-num text-xs font-bold text-on-surface w-10">16:00</span><div><span class="font-body-md text-xs font-bold text-on-surface block">Pooja Nair</span><span class="font-body-sm text-[11px] text-secondary">Hyundai Ioniq 5</span></div></div><div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block animate-pulse"></span><span class="font-label-caps text-[10px] px-2 py-0.5 rounded bg-primary text-on-primary font-semibold tracking-wider uppercase">Live</span></div></div><div class="p-3.5 flex items-center justify-between"><div class="flex items-center gap-3"><span class="font-code-num text-xs font-semibold text-secondary w-10">17:30</span><div><span class="font-body-md text-xs font-semibold text-on-surface block">Rajesh Varma</span><span class="font-body-sm text-[11px] text-secondary">Tata Nexon EV</span></div></div><div><span class="font-label-caps text-[9.5px] uppercase font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Action Req.</span></div></div><div class="p-3.5 flex items-center justify-between"><div class="flex items-center gap-3"><span class="font-code-num text-xs font-semibold text-secondary w-10">20:00</span><div><span class="font-body-md text-xs font-semibold text-on-surface block">Vikram Mehta</span><span class="font-body-sm text-[11px] text-secondary">BYD Atto 3</span></div></div><div class="flex items-center gap-2"><span class="font-code-num text-xs font-medium text-secondary">₹520 est.</span><span class="font-label-caps text-[9.5px] uppercase font-semibold text-secondary bg-surface-container-low px-1.5 py-0.5 rounded border border-surface-container-high">Confirmed</span></div></div></div></section><section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] space-y-3.5"><div class="flex items-center justify-between"><span class="font-label-caps text-[11px] uppercase tracking-[0.14em] text-secondary font-semibold">Automated Gate Access</span><span class="font-label-caps text-[10px] text-secondary uppercase tracking-wider">Rotates in 4h</span></div><div class="flex items-center justify-between bg-surface-container-low/70 border border-surface-container-high p-3 rounded-lg"><div><span class="font-label-caps text-[10px] uppercase tracking-wider text-secondary block">Gate #2 PIN</span><span class="font-headline-sm text-base font-bold text-on-surface tracking-widest mt-0.5 block">#4819</span></div><button class="h-8 px-2.5 rounded bg-surface-container-lowest border border-surface-container-highest hover:bg-surface-container-high text-on-surface font-label-caps text-[11px] uppercase tracking-wider font-medium flex items-center gap-1.5 transition-colors" id="copyPinBtn"><span class="material-symbols-outlined text-[15px]">content_copy</span><span id="copyText" class="">Copy Code</span></button></div><div class="flex items-center justify-between pt-0.5 text-xs text-secondary"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-on-surface">verified_user</span><span class="">₹10 Lakh Host Liability Insurance Active</span></div><a class="font-label-caps text-[10.5px] uppercase tracking-wider text-on-surface font-semibold hover:underline" href="#">Policy →</a></div></section><footer class="pt-2 pb-1 text-center space-y-1"><span class="font-label-caps text-[9.5px] tracking-[0.2em] uppercase text-secondary/70 font-semibold block">CHARGESHARE ARCHITECTURE · DISPENSE ENGINE V3</span><span class="font-body-sm text-[11px] text-secondary/70 block">Precision Home Grid Integration · Bangalore</span></footer></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-md border-t border-surface-container-high/80" data-active-classes="text-primary font-semibold"><div class="flex items-center justify-around h-14 px-2"><a aria-current="page" class="flex-1 flex flex-col items-center justify-center h-full text-primary font-semibold transition-colors" data-path="overview" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-caps text-[10px] uppercase mt-0.5 tracking-wider">Overview</span></a><a class="flex-1 flex flex-col items-center justify-center h-full text-secondary hover:text-on-surface transition-colors" data-path="bookings" href="#"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-label-caps text-[10px] uppercase mt-0.5 tracking-wider">Bookings</span></a><a class="flex-1 flex flex-col items-center justify-center h-full text-secondary hover:text-on-surface transition-colors" data-path="chargers" href="#"><span class="material-symbols-outlined text-[20px]">ev_charger</span><span class="font-label-caps text-[10px] uppercase mt-0.5 tracking-wider">Chargers</span></a><a class="flex-1 flex flex-col items-center justify-center h-full text-secondary hover:text-on-surface transition-colors" data-path="earnings" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span class="font-label-caps text-[10px] uppercase mt-0.5 tracking-wider">Earnings</span></a></div></nav><script>
+  let secondsRemaining = 217;
+  const timerElem = document.getElementById('countdownTimer');
+  if (timerElem) {
+    const timerInterval = setInterval(() => {
+      if (secondsRemaining <= 0) {
+        clearInterval(timerInterval);
+        return;
+      }
+      secondsRemaining--;
+      const mins = String(Math.floor(secondsRemaining / 60)).padStart(2, '0');
+      const secs = String(secondsRemaining % 60).padStart(2, '0');
+      timerElem.textContent = `Expires in ${mins}:${secs}`;
+    }, 1000);
+  }
+
+  const copyBtn = document.getElementById('copyPinBtn');
+  const copyText = document.getElementById('copyText');
+  if (copyBtn && copyText) {
+    copyBtn.addEventListener('click', () => {
+      copyText.textContent = 'Copied!';
+      setTimeout(() => {
+        copyText.textContent = 'Copy Code';
+      }, 2000);
+    });
+  }
+
+  const statusToggle = document.getElementById('statusToggle');
+  if (statusToggle) {
+    statusToggle.addEventListener('click', () => {
+      const isOnline = statusToggle.textContent.includes('Online');
+      if (isOnline) {
+        statusToggle.innerHTML = `
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary inline-block"></span>
+          <span class="font-label-caps text-[10.5px] uppercase text-secondary tracking-wider font-semibold">Paused</span>
+        `;
+      } else {
+        statusToggle.innerHTML = `
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"></span>
+          <span class="font-label-caps text-[10.5px] uppercase text-on-surface tracking-wider font-semibold">Online</span>
+        `;
+      }
+    });
+  }
+</script>
+
+
+
+
+
+</body></html>

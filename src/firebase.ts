@@ -1,5 +1,7 @@
 import { initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 function requireEnv(value: string | undefined, name: string): string {
@@ -27,6 +29,10 @@ const firebaseConfig: FirebaseOptions = {
 export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig);
 
 export const auth: Auth = getAuth(firebaseApp);
+
+export const db: Firestore = getFirestore(firebaseApp);
+
+export const storage: FirebaseStorage = getStorage(firebaseApp);
 
 /**
  * Analytics is unavailable in some browser environments, so initialisation

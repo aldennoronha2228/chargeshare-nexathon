@@ -4,7 +4,9 @@
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", sans-serif;
+  --font-hero: "Anton", "Barlow Condensed", "Plus Jakarta Sans", sans-serif;
   --font-mono: "Plus Jakarta Sans", "JetBrains Mono", sans-serif;
+  --font-space: "Space Grotesk", sans-serif;
 }
 
 @layer base {
@@ -15,6 +17,21 @@
     --color-ivory-deep: #EDE8D8;
     --color-charcoal: #22251F;
     --color-border: #D8D5CA;
+
+    /* Scoped tokens for provider page */
+    --color-surface: #FAF8F7;
+    --color-surface-container-lowest: #FFFFFF;
+    --color-surface-container-low: #F5F3F1;
+    --color-surface-container: #EFECE9;
+    --color-surface-container-high: #EBE7E5;
+    --color-surface-container-highest: #E8E6E5;
+    --color-primary: #000000;
+    --color-primary-container: #141414;
+    --color-on-surface: #111111;
+    --color-on-surface-variant: #57595A;
+    --color-secondary: #636563;
+    --color-outline: #747878;
+    --color-outline-variant: #E2E5E5;
   }
 
   html {
@@ -29,13 +46,19 @@
   }
 }
 
+.font-hero-display {
+  font-family: var(--font-hero) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
 .font-mono, .tabular-nums {
   font-family: "Plus Jakarta Sans", "JetBrains Mono", sans-serif !important;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
-/* Custom tactile range inputs */
+/* Custom tactile range inputs for landing page */
 input[type="range"].cs-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -80,4 +103,25 @@ input[type="range"].cs-slider:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Provider Portal Scoped Modernist Space Grotesk Styling */
+.provider-portal,
+.provider-portal .font-sans,
+.provider-portal .font-display {
+  font-family: "Space Grotesk", sans-serif !important;
+}
+
+.provider-portal .font-mono,
+.provider-portal .font-code-num {
+  font-family: "Space Grotesk", monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.provider-portal h1,
+.provider-portal h2,
+.provider-portal h3,
+.provider-portal h4 {
+  font-family: "Space Grotesk", sans-serif !important;
+  letter-spacing: -0.02em;
 }

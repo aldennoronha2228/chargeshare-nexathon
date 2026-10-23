@@ -27,19 +27,15 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
     <section
       id="chapter-connect"
       aria-labelledby="chapter-connect-heading"
-      className="relative z-10 min-h-[88vh] flex flex-col justify-start md:justify-center px-4 sm:px-8 pt-10 pb-28 md:py-24 pointer-events-none"
+      className="relative z-10 min-h-[88vh] flex flex-col justify-start md:justify-center px-4 sm:px-8 pt-12 sm:pt-16 pb-28 md:py-24 pointer-events-none"
     >
       <div className="max-w-[1360px] mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-        {/* Left 5 Columns: Chapter 02 Editorial Narrative directly on 3D Background (No Enclosing Box) */}
-        <div className="md:col-span-5 py-2 text-[#F6F3E9] space-y-5 pointer-events-auto">
-          <div className="text-xs font-mono uppercase tracking-wider text-[#D8F36A]">
-            CHAPTER 02 · CONNECT
-          </div>
-
+        {/* Left 5 Columns: Editorial Narrative directly on 3D Background with mobile scrim */}
+        <div className="md:col-span-5 py-4 px-4 sm:px-0 sm:py-2 bg-[#0A1B14]/85 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 text-[#F6F3E9] space-y-5 pointer-events-auto shadow-2xl sm:shadow-none">
           <h2
             id="chapter-connect-heading"
             className="font-display font-bold text-white tracking-tight leading-[1.06] text-balance"
-            style={{ fontSize: 'clamp(1.85rem, 3.1vw, 2.85rem)' }}
+            style={{ fontSize: 'clamp(1.75rem, 3.1vw, 2.85rem)' }}
           >
             Thousands of private chargers. One connected neighbourhood grid.
           </h2>
@@ -53,10 +49,11 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
 
           {/* Interactive 3D Neighbourhood Node Selector */}
           <div className="pt-3 border-t border-[#26503B] space-y-2.5">
-            <div className="text-[11px] font-mono uppercase text-[#D8F36A]">
-              Inspect 3D Neighbourhood Nodes (Click to Highlight in 3D Scene)
+            <div className="text-xs font-semibold text-[#D8F36A] flex items-center justify-between">
+              <span>Select a neighbourhood charger to preview in 3D:</span>
+              <span className="sm:hidden text-[10px] text-[#A6C0B2]">Swipe →</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap overflow-x-auto gap-2 pb-1.5 scrollbar-none sm:flex-wrap -mx-1 px-1">
               {chargers.slice(0, 5).map((c, idx) => {
                 const isSelected = idx === selectedChargerIndex;
                 return (
@@ -64,7 +61,7 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
                     key={c.id}
                     type="button"
                     onClick={() => onSelectNode(idx, c)}
-                    className={`px-3 py-1.5 text-xs font-mono rounded border transition-colors cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs font-mono rounded border transition-colors cursor-pointer whitespace-nowrap shrink-0 min-h-[36px] ${
                       isSelected
                         ? 'bg-[#D8F36A] text-[#173D2C] border-[#D8F36A] font-bold'
                         : 'bg-transparent text-[#E2ECE7] border-[#36654E] hover:border-[#D8F36A]'
@@ -94,7 +91,7 @@ export const ChapterConnectSection: React.FC<ChapterConnectSectionProps> = ({
           <button
             type="button"
             onClick={onExploreClick}
-            className="inline-flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer w-full sm:w-auto min-h-[44px]"
           >
             See How Booking Works
             <ArrowRight className="w-4 h-4" />
@@ -161,15 +158,12 @@ export const ChapterBookAndChargeSection: React.FC<ChapterBookAndChargeSectionPr
     <section
       id="how-it-works"
       aria-labelledby="chapter-book-heading"
-      className="scroll-mt-20 relative z-10 min-h-[88vh] flex flex-col justify-start md:justify-center px-4 sm:px-8 pt-8 pb-36 md:pt-12 md:pb-36 pointer-events-none"
+      className="scroll-mt-20 relative z-10 min-h-[88vh] flex flex-col justify-start md:justify-center px-4 sm:px-8 pt-12 sm:pt-16 pb-36 md:pt-12 md:pb-36 pointer-events-none"
     >
       <div className="max-w-[1360px] mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-        {/* Left 5 Columns: 3-Step Interactive Sequence directly over the dark 3D atmosphere */}
-        <div className="md:col-span-5 text-[#F6F3E9] py-1 space-y-4 pointer-events-auto">
-          <div className="space-y-1.5">
-            <div className="text-xs font-mono uppercase tracking-wider text-[#D8F36A] font-semibold">
-              CHAPTER 03 · BOOK AND CHARGE
-            </div>
+        {/* Left 5 Columns: 3-Step Interactive Sequence directly over the dark 3D atmosphere with mobile scrim */}
+        <div className="md:col-span-5 text-[#F6F3E9] py-4 px-4 sm:px-0 sm:py-1 bg-[#0A1B14]/85 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none rounded-xl sm:rounded-none border border-[#26503B]/60 sm:border-0 space-y-4 pointer-events-auto shadow-2xl sm:shadow-none">
+          <div className="space-y-2">
             <h2
               id="chapter-book-heading"
               className="font-display font-bold text-white tracking-tight text-balance"
@@ -192,10 +186,10 @@ export const ChapterBookAndChargeSection: React.FC<ChapterBookAndChargeSectionPr
                   key={s.num}
                   type="button"
                   onClick={() => handleStepClick(stepNum, s.state)}
-                  className={`w-full text-left py-3 px-3 transition-colors cursor-pointer flex items-start gap-3.5 ${
+                  className={`w-full text-left py-3 px-3 transition-colors cursor-pointer flex items-start gap-3.5 min-h-[52px] ${
                     isSelected
-                      ? 'border-l-2 border-[#D8F36A] pl-4'
-                      : 'opacity-75 hover:opacity-100'
+                      ? 'border-l-2 border-[#D8F36A] pl-4 bg-[#173D2C]/40 sm:bg-transparent'
+                      : 'opacity-75 hover:opacity-100 active:bg-[#173D2C]/30'
                   }`}
                 >
                   <span
@@ -232,11 +226,11 @@ export const ChapterBookAndChargeSection: React.FC<ChapterBookAndChargeSectionPr
             })}
           </div>
 
-          <div className="pt-1 flex flex-wrap items-center gap-4">
+          <div className="pt-1 flex flex-col sm:flex-row sm:items-center gap-3">
             <button
               type="button"
               onClick={onExploreChargers}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#173D2C] bg-[#D8F36A] rounded hover:bg-[#c9e854] transition-colors cursor-pointer w-full sm:w-auto min-h-[44px]"
             >
               Inspect Neighbourhood Grid
               <ArrowRight className="w-4 h-4" />
