@@ -266,6 +266,9 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       : [fallbackLongitude, fallbackLatitude];
 
     let map: maplibregl.Map;
+    let mapLoaded = false;
+    let lastMapError = '';
+    let loadTimeout = 0;
     try {
       map = new maplibregl.Map({
         container: locationMapContainerRef.current,
@@ -301,15 +304,26 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
         updateFromMap(event.lngLat.lng, event.lngLat.lat);
       });
       map.on('load', () => {
+        mapLoaded = true;
+        window.clearTimeout(loadTimeout);
         setLocationMapReady(true);
         map.resize();
       });
       map.on('error', (event) => {
         if (event.error) {
           console.error('[AddChargerForm] Location map error', event.error);
-          setLocationMapError('The map could not load. Check your connection and try again.');
+          lastMapError = event.error.message || 'Map style or tile request failed.';
         }
       });
+      loadTimeout = window.setTimeout(() => {
+        if (!mapLoaded) {
+          setLocationMapError(
+            lastMapError
+              ? `The map did not finish loading: ${lastMapError}`
+              : 'The map did not finish loading. Check your connection and try again.',
+          );
+        }
+      }, 15000);
 
       locationMapRef.current = map;
       locationMarkerRef.current = marker;
@@ -319,6 +333,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
     }
 
     return () => {
+      window.clearTimeout(loadTimeout);
       locationMarkerRef.current?.remove();
       locationMarkerRef.current = null;
       locationMapRef.current?.remove();
