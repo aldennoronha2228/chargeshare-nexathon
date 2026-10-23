@@ -202,7 +202,7 @@ export interface ProviderChargerFormInput {
   title: string;
   addressLine: string;
   locality: string;
-  city: Exclude<IndianCity, 'All Cities'>;
+  city: string;
   connector: ConnectorType;
   powerKw: number;
   price: number;
@@ -229,6 +229,10 @@ export function validateProviderChargerForm(input: ProviderChargerFormInput): Va
 
   if (!input.locality || input.locality.trim().length < 3) {
     errors.locality = 'Enter your neighbourhood or locality (e.g., Indiranagar, Baner).';
+  }
+
+  if (!input.city || input.city.trim().length < 2) {
+    errors.city = 'Choose a location pin to fill in the city.';
   }
 
   if (!Number.isFinite(input.powerKw) || input.powerKw < 2 || input.powerKw > 100) {

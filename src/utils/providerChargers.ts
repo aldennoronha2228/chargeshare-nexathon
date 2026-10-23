@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { ConnectorType, IndianCity } from '../data/demoChargers';
+import type { ConnectorType } from '../data/demoChargers';
 import type { ChargerListing } from '../data/demoChargers';
 
 export interface ChargerPhoto {
@@ -29,7 +29,7 @@ export interface ProviderCharger {
   title: string;
   addressLine: string;
   locality: string;
-  city: Exclude<IndianCity, 'All Cities'>;
+  city: string;
   connector: ConnectorType;
   powerKw: number;
   price: number;
@@ -119,7 +119,7 @@ function toProviderCharger(snapshot: QueryDocumentSnapshot<DocumentData>): Provi
     title: String(data.title ?? ''),
     addressLine: String(data.addressLine ?? ''),
     locality: String(data.locality ?? ''),
-    city: data.city as Exclude<IndianCity, 'All Cities'>,
+    city: String(data.city ?? ''),
     connector: data.connector as ConnectorType,
     powerKw: Number(data.powerKw ?? 0),
     price: Number(data.price ?? 0),

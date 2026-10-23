@@ -98,6 +98,11 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
   const [reviewsError, setReviewsError] = useState('');
   const [editingCharger, setEditingCharger] = useState<ProviderCharger | null>(null);
   const [addingCharger, setAddingCharger] = useState(false);
+  const [chargerSaveConfirmation, setChargerSaveConfirmation] = useState<{
+    title: string;
+    action: 'saved' | 'updated';
+    coordinates?: { lat: number; lng: number } | null;
+  } | null>(null);
   const [accountDrawerOpen, setAccountDrawerOpen] = useState(false);
 
   // Profile edit state
@@ -1086,6 +1091,20 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
         {/* TAB 3: CHARGERS */}
         {activeNav === 'chargers' && (
           <div className="space-y-5">
+            {chargerSaveConfirmation && (
+              <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Firebase confirmed: “{chargerSaveConfirmation.title}” {chargerSaveConfirmation.action}.</p>
+                  {chargerSaveConfirmation.coordinates && (
+                    <p className="mt-1 font-mono text-[11px]">
+                      Saved coordinates: {chargerSaveConfirmation.coordinates.lat.toFixed(6)}, {chargerSaveConfirmation.coordinates.lng.toFixed(6)}
+                    </p>
+                  )}
+                </div>
+                <button type="button" aria-label="Dismiss save confirmation" onClick={() => setChargerSaveConfirmation(null)} className="rounded p-1 hover:bg-emerald-100"><X size={16} /></button>
+              </div>
+            )}
             {addingCharger ? (
               <div className="max-w-2xl mx-auto">
                 <AddChargerForm
@@ -1098,8 +1117,18 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                   onSubmit={async (charger) => {
                     if (editingCharger) {
                       await updateProviderCharger(user.uid, editingCharger.id, charger);
+                      setChargerSaveConfirmation({
+                        title: charger.title,
+                        action: 'updated',
+                        coordinates: charger.coordinates,
+                      });
                     } else {
                       await saveProviderCharger(user.uid, charger);
+                      setChargerSaveConfirmation({
+                        title: charger.title,
+                        action: 'saved',
+                        coordinates: charger.coordinates,
+                      });
                     }
                     setAddingCharger(false);
                     setEditingCharger(null);

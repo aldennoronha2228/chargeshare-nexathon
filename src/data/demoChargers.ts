@@ -26,7 +26,7 @@ export interface ChargerListing {
   photoUrl?: string;
   title: string;
   locality: string;
-  city: Exclude<IndianCity, 'All Cities'>;
+  city: string;
   addressCue: string;
   distanceKm: number | null;
   connector: ConnectorType;
