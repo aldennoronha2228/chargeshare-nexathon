@@ -1,9 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
 import { validateProviderChargerForm } from '../utils/marketplaceLogic';
 import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
+import { resolveMapStyle } from '../utils/mapStyle';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
   'Bengaluru',
@@ -19,6 +22,14 @@ const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler (Car)', 'Bus/Truck']
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const EMPTY_PHOTO: ChargerPhoto = { name: '', url: '', publicId: '' };
+const CITY_MAP_CENTRES: Record<Exclude<IndianCity, 'All Cities'>, [number, number]> = {
+  Bengaluru: [77.5946, 12.9716],
+  Pune: [73.8567, 18.5204],
+  Mumbai: [72.8777, 19.076],
+  'Delhi NCR': [77.209, 28.6139],
+  Hyderabad: [78.4867, 17.385],
+  Chennai: [80.2707, 13.0827],
+};
 
 const INPUT =
   'w-full rounded border border-[#E2E5E5] bg-[#F5F3F1] px-3.5 py-2.5 text-xs font-sans text-[#111111] outline-none transition-all placeholder:text-[#747878] focus:border-black focus:bg-white';
@@ -194,6 +205,14 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   });
   const [preciseLocation, setPreciseLocation] = useState(Boolean(initialCharger?.coordinates && !legacyDefaultPoint));
   const [locating, setLocating] = useState(false);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [locationMapReady, setLocationMapReady] = useState(false);
+  const [locationMapError, setLocationMapError] = useState('');
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const locationMapContainerRef = useRef<HTMLDivElement>(null);
+  const locationMapRef = useRef<maplibregl.Map | null>(null);
+  const locationMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const lastMapPickedCoordinatesRef = useRef<string | null>(null);
   const [connector, setConnector] = useState<ConnectorType>(
     initialCharger?.connector ?? 'Type 2 AC'
   );
@@ -225,8 +244,121 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
 
   const uploadInProgress = uploading.charger || uploading.space;
   const busy = uploadInProgress || saving;
+  const enteredLatitude = Number(coordinates.lat);
+  const enteredLongitude = Number(coordinates.lng);
+  const hasValidCoordinates = coordinates.lat.trim() !== ''
+    && coordinates.lng.trim() !== ''
+    && Number.isFinite(enteredLatitude)
+    && enteredLatitude >= -90
+    && enteredLatitude <= 90
+    && Number.isFinite(enteredLongitude)
+    && enteredLongitude >= -180
+    && enteredLongitude <= 180;
 
-  const handleUseCurrentLocation = () => {
+  useEffect(() => {
+    if (!locationPickerOpen || !locationMapContainerRef.current || locationMapRef.current) return;
+
+    setLocationMapReady(false);
+    setLocationMapError('');
+    const [fallbackLongitude, fallbackLatitude] = CITY_MAP_CENTRES[city];
+    const center: [number, number] = hasValidCoordinates
+      ? [enteredLongitude, enteredLatitude]
+      : [fallbackLongitude, fallbackLatitude];
+
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: locationMapContainerRef.current,
+        style: resolveMapStyle(),
+        center,
+        zoom: hasValidCoordinates ? 16 : 12,
+        attributionControl: false,
+        touchZoomRotate: true,
+        dragRotate: false,
+      });
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+      const marker = new maplibregl.Marker({ color: '#173D2C', draggable: true })
+        .setLngLat(center)
+        .addTo(map);
+      const updateFromMap = (longitude: number, latitude: number) => {
+        const lat = latitude.toFixed(6);
+        const lng = longitude.toFixed(6);
+        lastMapPickedCoordinatesRef.current = `${lat},${lng}`;
+        setCoordinates({ lat, lng });
+        setPreciseLocation(true);
+        setLocationAccuracy(null);
+        setErrors((previous) => ({ ...previous, coordinates: '' }));
+      };
+
+      marker.on('dragend', () => {
+        const point = marker.getLngLat();
+        updateFromMap(point.lng, point.lat);
+      });
+      map.on('click', (event) => {
+        marker.setLngLat(event.lngLat);
+        updateFromMap(event.lngLat.lng, event.lngLat.lat);
+      });
+      map.on('load', () => {
+        setLocationMapReady(true);
+        map.resize();
+      });
+      map.on('error', (event) => {
+        if (event.error) {
+          console.error('[AddChargerForm] Location map error', event.error);
+          setLocationMapError('The map could not load. Check your connection and try again.');
+        }
+      });
+
+      locationMapRef.current = map;
+      locationMarkerRef.current = marker;
+    } catch (mapError) {
+      console.error('[AddChargerForm] Location map init failed', mapError);
+      setLocationMapError('The map could not be opened in this browser.');
+    }
+
+    return () => {
+      locationMarkerRef.current?.remove();
+      locationMarkerRef.current = null;
+      locationMapRef.current?.remove();
+      locationMapRef.current = null;
+      setLocationMapReady(false);
+    };
+  }, [locationPickerOpen, city]);
+
+  useEffect(() => {
+    if (!locationPickerOpen || !locationMapRef.current || !locationMarkerRef.current) return;
+    const latitude = Number(coordinates.lat);
+    const longitude = Number(coordinates.lng);
+    if (!coordinates.lat.trim() || !coordinates.lng.trim()
+      || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
+      || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) return;
+
+    const pickedCoordinates = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    locationMarkerRef.current.setLngLat([longitude, latitude]);
+    if (lastMapPickedCoordinatesRef.current === pickedCoordinates) {
+      lastMapPickedCoordinatesRef.current = null;
+      return;
+    }
+    locationMapRef.current.flyTo({ center: [longitude, latitude], zoom: 16, duration: 650 });
+  }, [coordinates.lat, coordinates.lng, locationPickerOpen]);
+
+  useEffect(() => {
+    if (!locationPickerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLocationPickerOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [locationPickerOpen]);
+
+  const requestCurrentLocation = () => {
     if (!navigator.geolocation) {
       setErrors((prev) => ({ ...prev, coordinates: 'Location is not supported by this browser. Enter coordinates below.' }));
       return;
@@ -236,6 +368,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       ({ coords: position }) => {
         setCoordinates({ lat: position.latitude.toFixed(6), lng: position.longitude.toFixed(6) });
         setPreciseLocation(true);
+        setLocationAccuracy(position.accuracy);
         setErrors((prev) => ({ ...prev, coordinates: '' }));
         setLocating(false);
       },
@@ -250,6 +383,11 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       },
       { enableHighAccuracy: true, timeout: 15000 },
     );
+  };
+
+  const handleUseCurrentLocation = () => {
+    setLocationPickerOpen(true);
+    requestCurrentLocation();
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -520,6 +658,13 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             >
               {locating ? 'Getting location…' : 'Use current location'}
             </button>
+            <button
+              type="button"
+              onClick={() => setLocationPickerOpen(true)}
+              className="rounded border border-[#E2E5E5] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#173D2C] hover:bg-[#F5F3F1]"
+            >
+              Choose on map
+            </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1 text-[10px] text-[#636563]" htmlFor="charger-latitude">
@@ -654,6 +799,86 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
           </button>
         </div>
       </div>
+
+      {locationPickerOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-3 sm:p-6"
+          onClick={() => setLocationPickerOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="charger-location-dialog-title"
+            className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#E2E5E5] bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-3 border-b border-[#EBE7E5] px-4 py-3 sm:px-6">
+              <div>
+                <h2 id="charger-location-dialog-title" className="text-base font-bold text-[#111111] sm:text-lg">
+                  Set charger location
+                </h2>
+                <p className="mt-1 text-[11px] text-[#636563] sm:text-xs">
+                  Drag the pin or tap the map to set the exact parking bay location.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLocationPickerOpen(false)}
+                aria-label="Close map"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E2E5E5] text-[#565A52] hover:bg-[#F5F3F1]"
+              >
+                <X size={17} />
+              </button>
+            </header>
+
+            <div className="relative h-[52vh] min-h-[300px] max-h-[640px] w-full bg-[#EDE8D8] sm:h-[62vh]">
+              <div ref={locationMapContainerRef} className="absolute inset-0" role="application" aria-label="Choose the exact charger location on the map" />
+              {!locationMapReady && !locationMapError && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[#F5F3F1] text-xs text-[#636563]">
+                  <LoaderCircle className="h-6 w-6 animate-spin text-[#173D2C]" />
+                  Loading map…
+                </div>
+              )}
+              {locationMapError && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 p-6 text-center text-sm text-[#B42318]">
+                  {locationMapError}
+                </div>
+              )}
+            </div>
+
+            <footer className="flex flex-col gap-3 border-t border-[#EBE7E5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="min-w-0 text-[11px] text-[#636563] sm:text-xs">
+                <span className="font-semibold text-[#111111]">Latitude {coordinates.lat || '—'}</span>
+                <span className="mx-2 text-[#A0A4A4]">·</span>
+                <span className="font-semibold text-[#111111]">Longitude {coordinates.lng || '—'}</span>
+                {locationAccuracy !== null && (
+                  <span className="ml-2 text-[#747878]">GPS accuracy ±{Math.round(locationAccuracy)} m</span>
+                )}
+                {errors.coordinates && <p className="mt-1 text-[#B42318]">{errors.coordinates}</p>}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={requestCurrentLocation}
+                  disabled={locating}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D8D5CA] px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-[#173D2C] hover:bg-[#F5F3F1] disabled:opacity-50"
+                >
+                  {locating && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                  {locating ? 'Locating…' : 'Use GPS'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationPickerOpen(false)}
+                  disabled={!hasValidCoordinates}
+                  className="rounded-lg bg-[#173D2C] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-[#26543E] disabled:opacity-50"
+                >
+                  Use this location
+                </button>
+              </div>
+            </footer>
+          </section>
+        </div>
+      )}
     </form>
   );
 };
