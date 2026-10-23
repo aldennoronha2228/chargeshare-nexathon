@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Camera, Check, LoaderCircle, MapPin, Trash2, X, Zap } from 'lucide-react';
-import maplibregl from 'maplibre-gl';
+import { AttributionControl, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ConnectorType } from '../data/demoChargers';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
@@ -190,8 +190,8 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
   const locationMapContainerRef = useRef<HTMLDivElement>(null);
-  const locationMapRef = useRef<maplibregl.Map | null>(null);
-  const locationMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const locationMapRef = useRef<MapLibreMap | null>(null);
+  const locationMarkerRef = useRef<Marker | null>(null);
   const geocodeRequestRef = useRef(0);
   const [locality, setLocality] = useState(initialCharger?.locality ?? '');
   const [city, setCity] = useState(initialCharger?.city ?? '');
@@ -262,14 +262,14 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
 
   useEffect(() => {
     if (!showLocationMap || !selectedPosition || !locationMapContainerRef.current || locationMapRef.current) return;
-    const map = new maplibregl.Map({
+    const map = new MapLibreMap({
       container: locationMapContainerRef.current,
       style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [selectedPosition.lng, selectedPosition.lat],
       zoom: 18,
       attributionControl: false,
     });
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
     locationMapRef.current = map;
     return () => {
       locationMarkerRef.current?.remove();
@@ -286,7 +286,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
     if (locationMarkerRef.current) {
       locationMarkerRef.current.setLngLat(point);
     } else {
-      const marker = new maplibregl.Marker({ color: '#111111', draggable: true })
+      const marker = new Marker({ color: '#111111', draggable: true })
         .setLngLat(point)
         .addTo(locationMapRef.current);
       marker.on('dragend', () => {

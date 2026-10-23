@@ -1183,16 +1183,16 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                           className="bg-white border border-[#E2E5E5] rounded-xl overflow-hidden shadow-sm flex flex-col justify-between"
                         >
                           <div>
-                            <div className="grid grid-cols-2 gap-[1px] bg-[#EBE7E5] h-44">
+                            <div className="grid h-44 grid-cols-2 grid-rows-1 gap-[1px] overflow-hidden bg-[#EBE7E5]">
                               <img
                                 src={charger.chargerPhoto.url}
                                 alt="Charger Hardware"
-                                className="w-full h-full object-cover"
+                                className="block h-full min-h-0 w-full min-w-0 object-cover"
                               />
                               <img
                                 src={charger.spacePhoto.url}
                                 alt="Parking Space"
-                                className="w-full h-full object-cover"
+                                className="block h-full min-h-0 w-full min-w-0 object-cover"
                               />
                             </div>
 

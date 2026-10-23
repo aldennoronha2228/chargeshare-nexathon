@@ -21,7 +21,14 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import maplibregl from 'maplibre-gl';
+import {
+  AttributionControl,
+  LngLatBounds,
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  Popup,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   AlertCircle,
@@ -169,10 +176,10 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef       = useRef<maplibregl.Map | null>(null);
+  const mapRef       = useRef<MapLibreMap | null>(null);
   // Map from charger.id → marker instance
-  const markersRef   = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const popupRef     = useRef<maplibregl.Popup | null>(null);
+  const markersRef   = useRef<Map<string, Marker>>(new Map());
+  const popupRef     = useRef<Popup | null>(null);
   const chargersRef = useRef(chargers);
   const onSelectRef = useRef(onSelectCharger);
   const onViewDetailsRef = useRef(onViewDetails);
@@ -190,10 +197,10 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    let map: maplibregl.Map;
+    let map: MapLibreMap;
 
     try {
-      map = new maplibregl.Map({
+      map = new MapLibreMap({
         container: containerRef.current,
         style: resolveMapStyle(),
         center: [78.9629, 20.5937], // India centre — overridden once chargers load
@@ -206,13 +213,13 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
 
       // Attribution in bottom-right (compact)
       map.addControl(
-        new maplibregl.AttributionControl({ compact: true }),
+        new AttributionControl({ compact: true }),
         'bottom-right',
       );
 
       // Zoom controls
       map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
+        new NavigationControl({ showCompass: false }),
         'top-right',
       );
 
@@ -279,7 +286,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
         // Create new marker
         const el = createMarkerElement(charger, isSelected);
 
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        const marker = new Marker({ element: el, anchor: 'center' })
           .setLngLat([pos.lng, pos.lat])
           .addTo(map);
 
@@ -304,7 +311,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       } else {
         const lngs = validChargers.map((c) => chargerLatLng(c)!.lng);
         const lats = validChargers.map((c) => chargerLatLng(c)!.lat);
-        const bounds = new maplibregl.LngLatBounds(
+        const bounds = new LngLatBounds(
           [Math.min(...lngs), Math.min(...lats)],
           [Math.max(...lngs), Math.max(...lats)],
         );
@@ -328,13 +335,13 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   }, [chargers, selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openPopup(
-    map: maplibregl.Map,
+    map: MapLibreMap,
     charger: ChargerListing,
     pos: { lat: number; lng: number },
   ) {
     popupRef.current?.remove();
 
-    const popup = new maplibregl.Popup({
+    const popup = new Popup({
       offset: 18,
       closeButton: true,
       closeOnClick: false,
@@ -385,7 +392,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
           background:#4A90E2;border:3px solid white;
           box-shadow:0 0 0 4px rgba(74,144,226,0.25);
         `;
-        new maplibregl.Marker({ element: el, anchor: 'center' })
+        new Marker({ element: el, anchor: 'center' })
           .setLngLat([longitude, latitude])
           .addTo(mapRef.current!);
 
