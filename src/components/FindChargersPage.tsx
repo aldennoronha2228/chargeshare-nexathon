@@ -736,10 +736,10 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const hasUnread = activeReservationCount > 0;
 
   return (
-    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-28 lg:pb-12">
+    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-12">
       {/* ── Compact top navigation ─────────────────────────────────────────── */}
       <header className="find-chargers-topbar sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
-        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6">
+        <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:gap-x-3 sm:px-6 md:flex-nowrap">
           <button
             type="button"
             onClick={goHome}
@@ -749,12 +749,50 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
             <span className="font-display text-[13px] font-bold tracking-[0.16em]">CHARGESHARE</span>
           </button>
           <span className="find-chargers-mode shrink-0 rounded border border-white/15 bg-white/10 px-2 py-1 font-label-caps text-[9px] font-semibold uppercase tracking-widest text-white/85">
-            Explore
+            Client
           </span>
-          <span className="min-w-0 flex-1" />
+
+          <div className="order-3 w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:order-none md:w-auto md:flex-1 md:overflow-visible">
+            <nav aria-label="Client navigation" className="mx-auto flex w-max items-center gap-1 rounded-full border border-white/10 bg-[#1C1C1C] p-1 md:mx-auto">
+              <button
+                type="button"
+                aria-current="page"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-black transition-colors sm:text-[10px]"
+              >
+                <Compass className="h-3.5 w-3.5" />
+                Explore
+              </button>
+              <button
+                type="button"
+                onClick={onOpenBookings}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <CalendarCheck className="h-3.5 w-3.5" />
+                Bookings
+              </button>
+              <button
+                type="button"
+                onClick={onOpenBookings}
+                title="Recent booking activity"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <Activity className="h-3.5 w-3.5" />
+                Activity
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenProfile('view')}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/10 hover:text-white sm:text-[10px]"
+              >
+                <UserRound className="h-3.5 w-3.5" />
+                Profile
+              </button>
+            </nav>
+          </div>
 
           {/* Notifications — shows real session state, never a fabricated count */}
-          <div ref={notifRef} className="relative shrink-0">
+          <div ref={notifRef} className="relative ml-auto shrink-0 md:ml-0">
             <button
               type="button"
               onClick={() => setNotifOpen((prev) => !prev)}
@@ -1198,48 +1236,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
         </div>
       </section>
 
-      {/* ── Fixed mobile bottom navigation ─────────────────────────────────── */}
-      <nav
-        aria-label="Primary mobile navigation"
-        className="find-chargers-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E2E1] bg-[#FCF9F8]/95 backdrop-blur lg:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="mx-auto flex max-w-[520px] items-stretch justify-around px-2 py-1.5">
-          <button
-            type="button"
-            aria-current="page"
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <Compass className="h-5 w-5" />
-            Explore
-          </button>
-          <button
-            type="button"
-            onClick={onOpenBookings}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <CalendarCheck className="h-5 w-5" />
-            Bookings
-          </button>
-          <button
-            type="button"
-            onClick={onOpenBookings}
-            title="Recent booking activity"
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <Activity className="h-5 w-5" />
-            Activity
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenProfile('view')}
-            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 px-2 py-1.5 text-[9px] font-medium uppercase tracking-wider text-[#5E5F5C] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-black"
-          >
-            <UserRound className="h-5 w-5" />
-            Profile
-          </button>
-        </div>
-      </nav>
     </div>
   );
 };

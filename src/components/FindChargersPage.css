@@ -230,11 +230,6 @@
   box-shadow: 0 2px 10px rgb(0 0 0 / 2%);
 }
 
-.find-chargers-bottom-nav {
-  min-height: 58px;
-  border-color: #e5e2e1 !important;
-}
-
 @media (min-width: 768px) {
   .find-chargers-hero {
     padding: 28px 32px !important;
