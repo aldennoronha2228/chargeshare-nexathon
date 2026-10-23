@@ -736,7 +736,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const hasUnread = activeReservationCount > 0;
 
   return (
-    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-12">
+    <div className="find-chargers-page min-h-screen bg-[#FCF9F8] pb-24 md:pb-12">
       {/* ── Compact top navigation ─────────────────────────────────────────── */}
       <header className="find-chargers-topbar sticky top-0 z-40 border-b border-[#D8D5CA] bg-[#F6F3E9]/95 backdrop-blur">
         <div className="find-chargers-topbar__inner mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:gap-x-3 sm:px-6 md:flex-nowrap">
@@ -752,7 +752,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
             Client
           </span>
 
-          <div className="order-3 w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:order-none md:w-auto md:flex-1 md:overflow-visible">
+          <div className="hidden md:block md:flex-1">
             <nav aria-label="Client navigation" className="mx-auto flex w-max items-center gap-1 rounded-full border border-white/10 bg-[#1C1C1C] p-1 md:mx-auto">
               <button
                 type="button"
@@ -1236,6 +1236,24 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           <span className="mt-1 block text-[10px] text-[#747878]">Neighbourhood EV charging marketplace</span>
         </div>
       </section>
+      <nav className="find-chargers-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-[#FCF9F8] pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Client navigation">
+        <button type="button" aria-current="page" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#1C1B1B]">
+          <Compass className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-semibold uppercase tracking-wide">Explore</span>
+        </button>
+        <button type="button" onClick={onOpenBookings} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <CalendarCheck className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Bookings</span>
+        </button>
+        <button type="button" onClick={onOpenBookings} title="Recent booking activity" className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <Activity className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Activity</span>
+        </button>
+        <button type="button" onClick={() => onOpenProfile('view')} className="flex min-h-[58px] flex-col items-center justify-center gap-1 text-[#5E5F5C]">
+          <UserRound className="h-5 w-5" />
+          <span className="font-label-caps text-[9px] font-medium uppercase tracking-wide">Profile</span>
+        </button>
+      </nav>
       </div>
     </div>
   );
