@@ -23,57 +23,57 @@ export const CHAPTER_KEYFRAMES: Record<StoryChapterId, CameraKeyframe> = {
     id: 'discover',
     chapterNumber: '01',
     label: 'Discover',
-    position: [-1.35, 2.25, 6.8],
-    target: [-1.25, 1.25, -0.6],
-    networkWeight: 0.35,
+    position: [-0.38, 1.48, 6.65],
+    target: [-0.12, 0.96, -0.35],
+    networkWeight: 0.2,
   },
   connect: {
     id: 'connect',
     chapterNumber: '02',
     label: 'Connect',
-    position: [-4.6, 13.5, 16.8],
-    target: [-4.0, 0.5, 0.8],
+    position: [-4.2, 11.8, 15.2],
+    target: [-3.4, 0.6, 0.5],
     networkWeight: 1.0,
   },
   find: {
     id: 'find',
     chapterNumber: '02',
     label: 'Connect',
-    position: [-4.6, 13.5, 16.8],
-    target: [-4.0, 0.5, 0.8],
+    position: [-4.2, 11.8, 15.2],
+    target: [-3.4, 0.6, 0.5],
     networkWeight: 0.85,
   },
   book: {
     id: 'book',
     chapterNumber: '03',
     label: 'Book & Charge',
-    position: [0.65, 1.85, 3.45],
-    target: [0.55, 1.48, -0.65],
-    networkWeight: 0.4,
+    position: [0.65, 1.45, 3.25],
+    target: [0.85, 1.15, 0.15],
+    networkWeight: 0.25,
   },
   share: {
     id: 'share',
     chapterNumber: '04',
     label: 'Safety',
-    position: [-1.5, 3.4, 5.8],
-    target: [-0.8, 1.4, -0.8],
-    networkWeight: 0.95,
+    position: [-1.15, 2.35, 5.4],
+    target: [-0.35, 1.12, -0.4],
+    networkWeight: 0.45,
   },
   safety: {
     id: 'safety',
     chapterNumber: '04',
     label: 'Trust & Safety',
-    position: [1.2, 2.1, 3.2],
-    target: [0.85, 1.65, -0.86],
-    networkWeight: 0.3,
+    position: [0.95, 1.55, 3.1],
+    target: [1.05, 1.24, 0.1],
+    networkWeight: 0.2,
   },
   conversion: {
     id: 'conversion',
     chapterNumber: '05',
     label: 'Get Started',
-    position: [1.8, 4.4, 8.4],
-    target: [-0.8, 1.2, -0.4],
-    networkWeight: 0.9,
+    position: [1.45, 2.85, 6.8],
+    target: [-0.45, 1.05, -0.35],
+    networkWeight: 0.75,
   },
 };
 
@@ -90,12 +90,13 @@ const _desiredPos = new THREE.Vector3();
 const _desiredTarget = new THREE.Vector3();
 
 export class ScrollSceneController {
-  private currentPos = new THREE.Vector3(-1.35, 2.25, 6.8);
-  private currentTarget = new THREE.Vector3(-1.25, 1.25, -0.6);
+  private currentPos = new THREE.Vector3(-0.38, 1.48, 6.65);
+  private currentTarget = new THREE.Vector3(-0.12, 0.96, -0.35);
   private activeChapter: StoryChapterId = 'discover';
   private pointerX = 0;
   private pointerY = 0;
-  public currentNetworkWeight = 0.35;
+  private elapsedTime = 0;
+  public currentNetworkWeight = 0.2;
 
   public setChapter(chapter: StoryChapterId) {
     this.activeChapter = chapter;
@@ -115,13 +116,13 @@ export class ScrollSceneController {
     delta: number,
     reducedMotion: boolean
   ) {
+    this.elapsedTime += delta;
     const kf = CHAPTER_KEYFRAMES[this.activeChapter] || CHAPTER_KEYFRAMES.discover;
-    const parallaxScale = reducedMotion ? 0 : 0.22;
+    const parallaxScale = reducedMotion ? 0 : 0.16;
+    const idleDriftX = reducedMotion ? 0 : Math.sin(this.elapsedTime * 0.42) * 0.04;
+    const idleDriftY = reducedMotion ? 0 : Math.cos(this.elapsedTime * 0.31) * 0.018;
     const aspect = camera.aspect || 1.5;
 
-    // Responsive framing so the 3D objects never collide with the typography:
-    // - On landscape / split-screen (aspect >= 0.82), shift camera target left so 3D scene projects into the right 56% of viewport.
-    // - On narrow portrait mobile (aspect < 0.82), pull camera back and shift target upward so 3D scene sits in the bottom half below the text.
     let aspectPosOffsetX = 0;
     let aspectPosOffsetZ = 0;
     let aspectTargetOffsetX = 0;
@@ -130,40 +131,38 @@ export class ScrollSceneController {
     if (aspect < 0.85) {
       // Portrait mobile (smartphones):
       if (this.activeChapter === 'book') {
-        // Book & Charge step: pull back and lower wallbox so it does not collide with step text
-        aspectPosOffsetX = 0.2;
-        aspectPosOffsetZ = 2.4;
-        aspectTargetOffsetX = 0.15;
-        aspectTargetOffsetY = 1.2;
+        aspectPosOffsetX = 0.35;
+        aspectPosOffsetZ = 2.1;
+        aspectTargetOffsetX = 0.25;
+        aspectTargetOffsetY = 0.92;
       } else if (this.activeChapter === 'connect') {
-        // Neighbourhood grid: pull back further to show connected nodes in lower viewport
         aspectPosOffsetX = 0.8;
-        aspectPosOffsetZ = 4.2;
+        aspectPosOffsetZ = 3.8;
         aspectTargetOffsetX = 0.5;
-        aspectTargetOffsetY = 0.95;
+        aspectTargetOffsetY = 0.85;
       } else {
-        // Discover / Hero & other chapters: frame car and charger in lower screen
-        aspectPosOffsetX = 1.35;
-        aspectPosOffsetZ = 3.1;
-        aspectTargetOffsetX = 1.2;
-        aspectTargetOffsetY = 1.55;
+        // Discover / Hero & other chapters: frame car and charger cleanly in lower screen below hero CTA buttons
+        aspectPosOffsetX = 0.85;
+        aspectPosOffsetZ = 1.65;
+        aspectTargetOffsetX = 0.78;
+        aspectTargetOffsetY = 1.05;
       }
     } else if (aspect < 1.25) {
-      // Split-screen / tablet preview pane (768px - 1050px wide): push 3D objects slightly further right
-      aspectPosOffsetX = -0.35;
-      aspectPosOffsetZ = 0.9;
-      aspectTargetOffsetX = -0.45;
+      // Split-screen / tablet preview pane (768px - 1050px wide)
+      aspectPosOffsetX = -0.22;
+      aspectPosOffsetZ = 0.65;
+      aspectTargetOffsetX = -0.28;
     }
 
     _desiredPos.set(
-      kf.position[0] + aspectPosOffsetX + this.pointerX * parallaxScale,
-      kf.position[1] - this.pointerY * parallaxScale * 0.6,
+      kf.position[0] + aspectPosOffsetX + this.pointerX * parallaxScale + idleDriftX,
+      kf.position[1] - this.pointerY * parallaxScale * 0.5 + idleDriftY,
       kf.position[2] + aspectPosOffsetZ
     );
 
     _desiredTarget.set(
-      kf.target[0] + aspectTargetOffsetX + this.pointerX * parallaxScale * 0.35,
-      kf.target[1] + aspectTargetOffsetY - this.pointerY * parallaxScale * 0.25,
+      kf.target[0] + aspectTargetOffsetX + this.pointerX * parallaxScale * 0.3,
+      kf.target[1] + aspectTargetOffsetY - this.pointerY * parallaxScale * 0.2,
       kf.target[2]
     );
 

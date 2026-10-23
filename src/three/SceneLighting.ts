@@ -1,31 +1,12 @@
 import * as THREE from 'three';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-
-/**
- * Lighting rig for the ChargeShare hero stage.
- *
- * The rig is intentionally small and physically motivated: one warm golden-hour
- * key that drives the contact shadows, a cool sky/ground hemisphere that stands
- * in for the missing bounce GI, a cold back light to separate the car body from
- * the residence, and a short-range lime accent on the charge point so the
- * charging interaction is where the eye lands.
- *
- * Image based lighting is supplied separately by `loadSkyEnvironment`, which
- * replaces the previous `RoomEnvironment` studio probe with a real outdoor HDRI
- * so the car paint reflects the actual sky and ground instead of a grey box.
- */
 
 export interface SceneLightsRig {
   keyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
   rimLight: THREE.DirectionalLight;
+  soffitWarmLight: THREE.PointLight;
+  interiorWarmLight: THREE.PointLight;
   chargerGlowLight: THREE.PointLight;
-  dispose: () => void;
-}
-
-export interface SkyEnvironmentHandle {
-  /** False when the HDRI failed to load and the neutral fallback is active. */
-  isHdri: boolean;
   dispose: () => void;
 }
 
@@ -50,61 +31,74 @@ export function detectSoftwareGl(): boolean {
 }
 
 /**
- * Builds the four-light rig. Lights are returned, **not** added to the scene, so the
- * caller controls the lifetime and can drop them together with the renderer.
+ * Creates a bespoke automotive & architectural courtyard IBL light-stage scene for PMREMGenerator.
+ * Produces natural twilight sky ribbons and warm 3000K architectural soffit reflections across
+ * clearcoat car paint, laminated glass, and forged alloy wheels without artificial neon color casts.
  */
-export function createSceneLights(isSoftwareGl: boolean): SceneLightsRig {
-  // 1. Warm sun key light. Low late-afternoon elevation from the right-rear of the
-  //    camera so the vehicle flank catches a long specular streak and the vehicle
-  //    casts a readable shadow across the paving toward the foreground.
-  const keyLight = new THREE.DirectionalLight(0xffe9c4, 2.35);
-  keyLight.position.set(11.5, 9.5, 13.5);
-  keyLight.target.position.set(-0.3, 0.7, 0.4);
-  keyLight.castShadow = !isSoftwareGl;
-  if (!isSoftwareGl) {
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    // The frustum has to cover the residence, the whole vehicle and the charge post.
-    const d = 17;
-    keyLight.shadow.camera.left = -d;
-    keyLight.shadow.camera.right = d;
-    keyLight.shadow.camera.top = d;
-    keyLight.shadow.camera.bottom = -d;
-    keyLight.shadow.camera.near = 1.5;
-    keyLight.shadow.camera.far = 64;
-    keyLight.shadow.bias = -0.0004;
-    keyLight.shadow.normalBias = 0.028;
-    keyLight.shadow.radius = 3;
+function createArchitecturalCourtyardEnvironment(): THREE.Scene {
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color(0x16221c);
+
+  // Smooth atmospheric twilight sky dome so reflections have zero hard cutoffs at any angle
+  const domeGeo = new THREE.SphereGeometry(26, 32, 20);
+  const posAttr = domeGeo.attributes.position;
+  const colors = new Float32Array(posAttr.count * 3);
+  const cZenith = new THREE.Color(0x52687a);
+  const cHorizon = new THREE.Color(0x283630);
+  const cGround = new THREE.Color(0x121815);
+  const tempColor = new THREE.Color();
+
+  for (let i = 0; i < posAttr.count; i++) {
+    const y = posAttr.getY(i) / 26;
+    if (y >= 0) {
+      tempColor.lerpColors(cHorizon, cZenith, Math.pow(y, 0.65));
+    } else {
+      tempColor.lerpColors(cHorizon, cGround, Math.min(1, -y * 2.2));
+    }
+    colors[i * 3] = tempColor.r;
+    colors[i * 3 + 1] = tempColor.g;
+    colors[i * 3 + 2] = tempColor.b;
   }
+  domeGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const domeMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    side: THREE.BackSide,
+  });
+  envScene.add(new THREE.Mesh(domeGeo, domeMat));
 
-  // 2. Sky/ground hemisphere. Cheap stand-in for the sky-to-paving bounce that an
-  //    offline renderer would solve properly.
-  const hemiLight = new THREE.HemisphereLight(0xbcd4e6, 0x494036, 0.42);
-  hemiLight.position.set(0, 30, 0);
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
-  // 3. Cold back light along the negative Z shoulder: separates the roof line and
-  //    the rear haunch from the residence behind it.
-  const rimLight = new THREE.DirectionalLight(0xc4dbff, 1.05);
-  rimLight.position.set(-14, 10, -13);
-
-  // 4. Short-range lime accent co-located with the charge post head, so the wallbox
-  //    and the plugged connector read as the light source of the composition.
-  const chargerGlowLight = new THREE.PointLight(0xd8f36a, 1.1, 6, 2);
-  chargerGlowLight.position.set(2.05, 1.35, 0.55);
-
-  return {
-    keyLight,
-    hemiLight,
-    rimLight,
-    chargerGlowLight,
-    dispose: () => {
-      keyLight.shadow.map?.dispose();
-      keyLight.dispose();
-      hemiLight.dispose();
-      rimLight.dispose();
-      chargerGlowLight.dispose();
-    },
+  const addPanel = (
+    colorHex: number,
+    intensity: number,
+    pos: [number, number, number],
+    scale: [number, number, number],
+    rot: [number, number, number] = [0, 0, 0]
+  ) => {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(colorHex).multiplyScalar(intensity),
+    });
+    const mesh = new THREE.Mesh(boxGeo, mat);
+    mesh.position.set(...pos);
+    mesh.scale.set(...scale);
+    mesh.rotation.set(...rot);
+    envScene.add(mesh);
   };
+
+  // 1. Extended Overhead Twilight Sky Softbox Ribbon (creates long, continuous highlight along hood, roof & glass)
+  addPanel(0xe6eef7, 3.2, [0, 13, 0], [22, 0.2, 24]);
+
+  // 2. Warm 3000K Carport Soffit & Residence Architectural Strip (Right/Rear)
+  addPanel(0xffe0b5, 3.8, [8, 5.5, -2], [0.2, 5.5, 18]);
+
+  // 3. Soft Neutral Evening Horizon Fill Strip (Left/Front)
+  addPanel(0xd8e2eb, 2.2, [-10, 4.5, 2], [0.2, 5.0, 18]);
+
+  // 4. Front & Rear Low Specular Accent Strips (defines front & rear bumper bevels)
+  addPanel(0xf2efe9, 1.9, [-2, 2.6, 14], [16, 2.8, 0.2]);
+  addPanel(0xdce6f0, 1.6, [0, 3.5, -14], [18, 3.5, 0.2]);
+
+  return envScene;
 }
 
 export function setupSceneLighting(
@@ -112,63 +106,74 @@ export function setupSceneLighting(
   renderer: THREE.WebGLRenderer,
   isSoftwareGl: boolean
 ): SceneLightsRig {
-  const lights = createSceneLights(isSoftwareGl);
-  scene.add(lights.keyLight);
-  scene.add(lights.hemiLight);
-  scene.add(lights.rimLight);
-  scene.add(lights.chargerGlowLight);
-  return lights;
-}
+  // Architectural twilight horizon (#0D1D16) matching the ChargeShare editorial canvas
+  const bgColor = new THREE.Color(0x0d1d16);
+  scene.background = bgColor;
+  // Restrained atmospheric falloff at the far perimeter (no heavy fog)
+  scene.fog = new THREE.FogExp2(0x0d1d16, 0.01);
 
-/**
- * Loads the outdoor HDRI, converts it to a PMREM cube map for image based lighting
- * and also uses it as the visible sky. Falls back to a flat overcast tone (with no
- * environment map) if the file is missing, so the scene still renders coherently.
- *
- * Asset: `public/hdri/qwantani_sunset_puresky_2k.hdr` (Poly Haven, CC0 1.0).
- */
-export async function loadSkyEnvironment(
-  scene: THREE.Scene,
-  renderer: THREE.WebGLRenderer,
-  url: string
-): Promise<SkyEnvironmentHandle> {
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  pmrem.compileEquirectangularShader();
+  // Automotive & Architectural IBL Environment Map via PMREMGenerator
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileCubemapShader();
+  const envScene = createArchitecturalCourtyardEnvironment();
+  const activeEnvRt = pmremGenerator.fromScene(envScene, 0.035);
+  scene.environment = activeEnvRt.texture;
+  scene.environmentIntensity = 1.15;
+  pmremGenerator.dispose();
 
-  let hdrTexture: THREE.Texture | null = null;
-  let envTarget: THREE.WebGLRenderTarget | null = null;
-
-  try {
-    hdrTexture = await new RGBELoader().loadAsync(url);
-    hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
-    hdrTexture.minFilter = THREE.LinearFilter;
-    hdrTexture.magFilter = THREE.LinearFilter;
-
-    envTarget = pmrem.fromEquirectangular(hdrTexture);
-    scene.environment = envTarget.texture;
-    scene.environmentIntensity = 1.0;
-    scene.background = hdrTexture;
-    scene.backgroundIntensity = 0.92;
-
-    // Warm haze tied to the sky colour: gives the residence real aerial depth
-    // without a heavy fog that would flatten the paving.
-    scene.fog = new THREE.FogExp2(0xc3ab8e, 0.0062);
-
-    return {
-      isHdri: true,
-      dispose: () => {
-        envTarget?.dispose();
-        hdrTexture?.dispose();
-        pmrem.dispose();
-      },
-    };
-  } catch {
-    const fallback = new THREE.Color(0x9fb4bd);
-    scene.background = fallback;
-    scene.backgroundIntensity = 1;
-    scene.environment = null;
-    scene.fog = new THREE.FogExp2(0x8fa3a8, 0.008);
-    pmrem.dispose();
-    return { isHdri: false, dispose: () => {} };
+  // 1. Primary Dusk / Architectural Key Light (Directional)
+  const keyLight = new THREE.DirectionalLight(0xfff4e6, 2.35);
+  keyLight.position.set(8, 15, 11);
+  keyLight.castShadow = !isSoftwareGl;
+  if (!isSoftwareGl) {
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    const d = 10;
+    keyLight.shadow.camera.left = -d;
+    keyLight.shadow.camera.right = d;
+    keyLight.shadow.camera.top = d;
+    keyLight.shadow.camera.bottom = -d;
+    keyLight.shadow.camera.near = 1;
+    keyLight.shadow.camera.far = 42;
+    keyLight.shadow.bias = -0.0003;
+    keyLight.shadow.normalBias = 0.015;
   }
+  scene.add(keyLight);
+
+  // 2. Natural Twilight Sky & Dark Basalt Ground Hemisphere Fill
+  const hemiLight = new THREE.HemisphereLight(0xc8d6e2, 0x1e2220, 1.0);
+  hemiLight.position.set(0, 25, 0);
+  scene.add(hemiLight);
+
+  // 3. Neutral Evening Horizon Rim Light to sculpt the fastback roofline
+  const rimLight = new THREE.DirectionalLight(0xf0f4f8, 0.95);
+  rimLight.position.set(-12, 8, -9);
+  scene.add(rimLight);
+
+  // 4. Warm 3000K Architectural Carport Soffit Downlight
+  const soffitWarmLight = new THREE.PointLight(0xffd6a3, 3.0, 13, 1.6);
+  soffitWarmLight.position.set(1.2, 3.25, -0.45);
+  scene.add(soffitWarmLight);
+
+  // 5. Warm 2800K Interior Living Room Illumination (behind glass curtain wall)
+  const interiorWarmLight = new THREE.PointLight(0xffca88, 2.8, 11, 1.6);
+  interiorWarmLight.position.set(2.4, 2.1, -3.3);
+  scene.add(interiorWarmLight);
+
+  // 6. Tightly-scoped ChargeShare Lime Indicator Light at Wallbox Bezel
+  const chargerGlowLight = new THREE.PointLight(0xd8f36a, 0.28, 1.4, 2.2);
+  chargerGlowLight.position.set(1.92, 1.62, 0.78);
+  scene.add(chargerGlowLight);
+
+  return {
+    keyLight,
+    hemiLight,
+    rimLight,
+    soffitWarmLight,
+    interiorWarmLight,
+    chargerGlowLight,
+    dispose: () => {
+      activeEnvRt.dispose();
+    },
+  };
 }

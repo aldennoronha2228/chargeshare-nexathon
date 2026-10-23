@@ -1,18 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { X, CheckCircle2, Trash2, Zap } from 'lucide-react';
-import type { User } from 'firebase/auth';
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-} from 'firebase/auth';
 import type { ChargerListing, ConnectorType, IndianCity } from '../data/demoChargers';
 import { validateHostListingForm } from '../utils/marketplaceLogic';
-import { describeAuthError } from '../utils/authErrors';
-import { auth } from '../firebase';
 
 export interface ConfirmedDemoBooking {
   bookingId: string;
@@ -111,15 +100,12 @@ export const HostOnboardingModal: React.FC<HostOnboardingModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="host-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded max-w-lg w-full p-6 sm:p-7 relative my-8">
-        <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#D8D5CA]">
+      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded-lg max-w-lg w-full p-4 sm:p-7 relative my-auto max-h-[92vh] flex flex-col shadow-2xl">
+        <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#D8D5CA] shrink-0">
           <div>
-            <span className="text-xs font-mono uppercase text-[#173D2C] font-semibold">
-              BECOME A HOST · DEMO LISTING CREATOR
-            </span>
-            <h2 id="host-modal-title" className="text-xl font-bold font-display text-[#22251F] mt-1">
+            <h2 id="host-modal-title" className="text-lg sm:text-xl font-bold font-display text-[#22251F]">
               List your private EV charger on ChargeShare
             </h2>
           </div>
@@ -127,11 +113,13 @@ export const HostOnboardingModal: React.FC<HostOnboardingModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close host onboarding dialog"
-            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer"
+            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        <div className="overflow-y-auto pr-1 py-1 flex-1">
 
         {submittedCharger ? (
           <div className="py-6 space-y-4">
@@ -311,6 +299,7 @@ export const HostOnboardingModal: React.FC<HostOnboardingModalProps> = ({
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   );
@@ -329,57 +318,20 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
   confirmedBookings,
   onCancelBooking,
 }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [phoneOrEmail, setPhoneOrEmail] = useState('');
+  const [signedInUser, setSignedInUser] = useState<string | null>(null);
   const [authError, setAuthError] = useState('');
-  const [authPending, setAuthPending] = useState(false);
-
-  useEffect(() => {
-    return onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-    });
-  }, []);
 
   if (!isOpen) return null;
 
-  const displayName = currentUser?.displayName || currentUser?.email || '';
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError('');
-    setAuthPending(true);
-    try {
-      if (authMode === 'signup') {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
-      } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-      }
-      setEmail('');
-      setPassword('');
-    } catch (error) {
-      setAuthError(describeAuthError(error));
-    } finally {
-      setAuthPending(false);
+    if (!phoneOrEmail || phoneOrEmail.trim().length < 4) {
+      setAuthError('Enter your email or 10-digit Indian mobile number to sign in to the demo session.');
+      return;
     }
-  };
-
-  const handleGoogleSignIn = async () => {
     setAuthError('');
-    setAuthPending(true);
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (error) {
-      setAuthError(describeAuthError(error));
-    } finally {
-      setAuthPending(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setAuthError('');
-    await signOut(auth);
+    setSignedInUser(phoneOrEmail.trim());
   };
 
   return (
@@ -387,107 +339,57 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="signin-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded max-w-lg w-full p-6 sm:p-7 relative my-8 space-y-5">
-        <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#D8D5CA]">
+      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded-lg max-w-lg w-full p-4 sm:p-7 relative my-auto max-h-[92vh] flex flex-col shadow-2xl">
+        <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#D8D5CA] shrink-0">
           <div>
-            <span className="text-xs font-mono uppercase text-[#173D2C] font-semibold">
-              DRIVER & HOST SESSION ACCOUNT
-            </span>
-            <h2 id="signin-modal-title" className="text-xl font-bold font-display text-[#22251F] mt-1">
-              {currentUser ? `Signed in as ${displayName}` : 'Sign in to manage bookings'}
+            <h2 id="signin-modal-title" className="text-lg sm:text-xl font-bold font-display text-[#22251F]">
+              {signedInUser ? `Signed in as ${signedInUser}` : 'Sign in to manage bookings'}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close sign in dialog"
-            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer"
+            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {!currentUser ? (
-          <div className="space-y-4 text-xs">
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={authPending}
-              className="w-full py-2.5 px-4 font-semibold text-[#22251F] bg-white border border-[#D8D5CA] rounded hover:bg-[#EDE8D8] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Continue with Google
-            </button>
+        <div className="overflow-y-auto pr-1 py-2 flex-1 space-y-4">
 
-            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-[#565A52]">
-              <span className="h-px flex-1 bg-[#D8D5CA]" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-[#D8D5CA]" />
+        {!signedInUser ? (
+          <form onSubmit={handleSignIn} noValidate className="space-y-3 text-xs">
+            <div>
+              <label htmlFor="signin-identifier" className="block font-semibold text-[#22251F] mb-1">
+                Mobile Number or Email Address
+              </label>
+              <input
+                id="signin-identifier"
+                type="text"
+                value={phoneOrEmail}
+                onChange={(e) => setPhoneOrEmail(e.target.value)}
+                placeholder="e.g., +91 98450 12345 or driver@example.in"
+                className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
+              />
+              {authError && <p className="text-[#B42318] mt-1">{authError}</p>}
             </div>
-
-            <form onSubmit={handleEmailAuth} noValidate className="space-y-3">
-              <div>
-                <label htmlFor="signin-email" className="block font-semibold text-[#22251F] mb-1">
-                  Email Address
-                </label>
-                <input
-                  id="signin-email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="driver@example.in"
-                  className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="signin-password" className="block font-semibold text-[#22251F] mb-1">
-                  Password
-                </label>
-                <input
-                  id="signin-password"
-                  type="password"
-                  autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full px-3 py-2.5 bg-white border border-[#D8D5CA] rounded text-[#22251F]"
-                />
-              </div>
-
-              {authError && <p className="text-[#B42318]">{authError}</p>}
-
-              <button
-                type="submit"
-                disabled={authPending}
-                className="w-full py-2.5 px-4 font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {authPending ? 'Please wait…' : authMode === 'signup' ? 'Create Account' : 'Sign In'}
-              </button>
-            </form>
-
             <button
-              type="button"
-              onClick={() => {
-                setAuthMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
-                setAuthError('');
-              }}
-              className="text-[#173D2C] underline underline-offset-4 cursor-pointer"
+              type="submit"
+              className="w-full py-2.5 px-4 font-semibold text-[#173D2C] bg-[#D8F36A] border border-[#173D2C] rounded hover:bg-[#c9e854] cursor-pointer"
             >
-              {authMode === 'signup'
-                ? 'Already have an account? Sign in'
-                : 'New to ChargeShare? Create an account'}
+              Continue with Demo Account
             </button>
-          </div>
+          </form>
         ) : (
-          <div className="p-3.5 bg-[#173D2C] text-[#F6F3E9] rounded text-xs flex items-center justify-between gap-3">
-            <span className="truncate">Signed in as {displayName}</span>
+          <div className="p-3.5 bg-[#173D2C] text-[#F6F3E9] rounded text-xs flex items-center justify-between">
+            <span>Active Demo Profile: {signedInUser}</span>
             <button
               type="button"
-              onClick={handleSignOut}
-              className="text-[#D8F36A] underline cursor-pointer shrink-0"
+              onClick={() => setSignedInUser(null)}
+              className="text-[#D8F36A] underline cursor-pointer"
             >
               Sign Out
             </button>
@@ -496,7 +398,7 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
 
         {/* Active Session Demo Bookings List */}
         <div className="pt-3 border-t border-[#D8D5CA] space-y-3">
-          <div className="text-xs font-mono uppercase text-[#22251F] font-semibold">
+          <div className="text-sm font-bold font-display text-[#22251F]">
             Your Reserved Demo Slots ({confirmedBookings.length})
           </div>
           {confirmedBookings.length === 0 ? (
@@ -530,6 +432,7 @@ export const SignInAndBookingsModal: React.FC<SignInAndBookingsModalProps> = ({
             </div>
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -548,12 +451,18 @@ export const InfoPolicyModal: React.FC<InfoPolicyModalProps> = ({ topic, onClose
       role="dialog"
       aria-modal="true"
       aria-labelledby="policy-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded max-w-lg w-full p-6 sm:p-7 relative my-8 space-y-4">
-        <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#D8D5CA]">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[#173D2C]" />
+      <div className="bg-[#F6F3E9] border-2 border-[#22251F] rounded-lg max-w-lg w-full p-5 sm:p-7 relative my-auto max-h-[92vh] flex flex-col shadow-2xl">
+        <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#D8D5CA] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded bg-[#173D2C] p-1 inline-flex items-center justify-center shrink-0">
+              <img
+                src="/logo-square-lime.png"
+                alt="ChargeShare logo mark"
+                className="w-full h-full object-contain"
+              />
+            </span>
             <h2 id="policy-modal-title" className="text-lg font-bold font-display text-[#22251F]">
               {topic === 'support'
                 ? 'ChargeShare Help & Support'
@@ -564,11 +473,13 @@ export const InfoPolicyModal: React.FC<InfoPolicyModalProps> = ({ topic, onClose
             type="button"
             onClick={onClose}
             aria-label="Close information dialog"
-            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer"
+            className="p-1.5 rounded border border-[#D8D5CA] text-[#22251F] hover:bg-[#EDE8D8] cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        <div className="overflow-y-auto pr-1 py-2 flex-1">
 
         {topic === 'support' ? (
           <div className="space-y-3 text-xs text-[#3D423A] leading-relaxed">
@@ -605,8 +516,9 @@ export const InfoPolicyModal: React.FC<InfoPolicyModalProps> = ({ topic, onClose
             </p>
           </div>
         )}
+        </div>
 
-        <div className="pt-3 border-t border-[#D8D5CA] flex justify-end">
+        <div className="pt-3 border-t border-[#D8D5CA] flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}

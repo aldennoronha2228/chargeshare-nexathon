@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+.aistudio/
+chargeshare/
+bun.lock
+/*.png
+public/test_crop.png

@@ -4,8 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
 import { DEMO_CHARGERS, type ChargerListing } from './data/demoChargers';
 import { ORDERED_CHAPTERS, type StoryChapterId } from './three/ScrollSceneController';
 import type { ChargerVisualState } from './three/ChargerModel';
@@ -14,15 +12,12 @@ import { HeroScene } from './components/HeroScene';
 import { ChapterConnectSection, ChapterBookAndChargeSection } from './components/StoryChapters';
 import { SafetyAndFeatureShowcase } from './components/SafetyAndFeatureShowcase';
 import { IndiaMobilityAndConversion } from './components/IndiaMobilityAndConversion';
-import { HostPortal } from './components/HostPortal';
-import { AuthPage } from './components/AuthPage';
 import {
+  HostOnboardingModal,
   SignInAndBookingsModal,
   InfoPolicyModal,
   type ConfirmedDemoBooking,
 } from './components/InteractiveModals';
-import { auth } from './firebase';
-import { ROUTES, readAppRoute, navigateTo } from './utils/appRoute';
 
 const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
   discover: 'chapter-discover',
@@ -37,10 +32,7 @@ const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
 const CHARGER_STATE_CYCLE: ChargerVisualState[] = ['charging', 'standby', 'reserved'];
 
 export default function App() {
-  const [route, setRoute] = useState(readAppRoute);
-  const [user, setUser] = useState<User | null>(null);
-  const [authResolved, setAuthResolved] = useState(false);
-  const [chargers] = useState<ChargerListing[]>(DEMO_CHARGERS);
+  const [chargers, setChargers] = useState<ChargerListing[]>(DEMO_CHARGERS);
   const [selectedChargerIndex, setSelectedChargerIndex] = useState<number>(0);
   const [confirmedBookings, setConfirmedBookings] = useState<ConfirmedDemoBooking[]>([]);
 
@@ -49,23 +41,9 @@ export default function App() {
   const [chargerState, setChargerState] = useState<ChargerVisualState>('charging');
 
   // Modal states
+  const [hostModalOpen, setHostModalOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [infoModalTopic, setInfoModalTopic] = useState<'support' | 'terms' | null>(null);
-
-  // Keep the route in sync with client-side navigation (pushState + popstate)
-  useEffect(() => {
-    const handlePopState = () => setRoute(readAppRoute());
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Track the Firebase session so the provider portal can require a real account
-  useEffect(() => {
-    return onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthResolved(true);
-    });
-  }, []);
 
   // Sync activeChapter with scroll position across the 5 narrative sections
   useEffect(() => {
@@ -131,33 +109,17 @@ export default function App() {
     setConfirmedBookings((prev) => prev.filter((b) => b.bookingId !== bookingId));
   };
 
-  const openProviderPortal = useCallback(() => {
-    navigateTo(user ? ROUTES.provider : ROUTES.login);
-  }, [user]);
-
-  // Provider portal — requires a real Firebase session
-  if (route === 'provider') {
-    if (!authResolved) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-[#FAF7F0] font-body text-[13px] font-semibold text-[#414944]">
-          Checking your session…
-        </div>
-      );
-    }
-    return user ? <HostPortal user={user} /> : <AuthPage redirectTo={ROUTES.provider} />;
-  }
-
-  // Dedicated login / signup page
-  if (route === 'login') {
-    return <AuthPage redirectTo={ROUTES.provider} />;
-  }
+  const handleAddHostListing = (newCharger: ChargerListing) => {
+    setChargers((prev) => [newCharger, ...prev]);
+    setSelectedChargerIndex(0);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#173D2C] text-[#22251F]">
       {/* Persistent Top Bar Navigation */}
       <Navbar
         onExploreChargers={scrollToConnect}
-        onOpenHostModal={openProviderPortal}
+        onOpenHostModal={() => setHostModalOpen(true)}
         onOpenSignInModal={() => setSignInModalOpen(true)}
         activeReservationCount={confirmedBookings.length}
       />
@@ -171,7 +133,7 @@ export default function App() {
           onSelectChapter={handleSelectChapter}
           onCycleChargerState={handleCycleChargerState}
           onFindChargerClick={scrollToConnect}
-          onBecomeHostClick={openProviderPortal}
+          onBecomeHostClick={() => setHostModalOpen(true)}
         />
 
         {/* CHAPTER 2 — CONNECT (3D Neighbourhood Pull-Back & Shared Charging Network) */}
@@ -195,12 +157,18 @@ export default function App() {
         {/* CHAPTER 5 — FINAL CONVERSION & FOOTER */}
         <IndiaMobilityAndConversion
           onExploreChargers={scrollToConnect}
-          onOpenHostModal={openProviderPortal}
+          onOpenHostModal={() => setHostModalOpen(true)}
           onOpenInfoModal={(topic) => setInfoModalTopic(topic)}
         />
       </main>
 
       {/* Interactive Modals */}
+      <HostOnboardingModal
+        isOpen={hostModalOpen}
+        onClose={() => setHostModalOpen(false)}
+        onAddHostListing={handleAddHostListing}
+      />
+
       <SignInAndBookingsModal
         isOpen={signInModalOpen}
         onClose={() => setSignInModalOpen(false)}
