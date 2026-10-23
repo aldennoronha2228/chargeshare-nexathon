@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
 import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
 import { storage } from '../firebase';
@@ -27,14 +27,63 @@ const INPUT =
 const LABEL = 'text-[10px] font-sans font-semibold uppercase tracking-[0.14em] text-[#636563]';
 const ERROR = 'text-[11px] font-sans text-red-600 mt-1';
 
-async function uploadPhoto(file: File, providerId: string): Promise<ChargerPhoto> {
+async function uploadPhoto(
+  file: File,
+  providerId: string,
+  onProgress: (progress: number) => void,
+): Promise<ChargerPhoto> {
   const optimizedFile = await optimizeImageForUpload(file);
   const safeBaseName = optimizedFile.name.replace(/[^a-zA-Z0-9._-]/g, '-') || 'charger-photo.webp';
   const fileId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const path = `providers/${providerId}/chargers/${fileId}-${safeBaseName}`;
   const fileReference = storageRef(storage, path);
-  await uploadBytes(fileReference, optimizedFile, { contentType: optimizedFile.type });
-  return { name: file.name, url: await getDownloadURL(fileReference), publicId: path };
+  const uploadTask = uploadBytesResumable(fileReference, optimizedFile, {
+    contentType: optimizedFile.type,
+  });
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      uploadTask.cancel();
+      reject(new Error('Upload timed out after 60 seconds. Check your connection and Firebase Storage setup, then retry.'));
+    }, 60_000);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        onProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve();
+      },
+    );
+  });
+  let downloadUrl: string;
+  let urlTimeout: number | undefined;
+  try {
+    downloadUrl = await Promise.race([
+      getDownloadURL(fileReference),
+      new Promise<never>((_, reject) => {
+        urlTimeout = window.setTimeout(
+          () => reject(new Error('Photo uploaded, but Firebase did not return its URL. Check Storage configuration and retry.')),
+          30_000,
+        );
+      }),
+    ]);
+  } finally {
+    if (urlTimeout !== undefined) window.clearTimeout(urlTimeout);
+  }
+  return { name: file.name, url: downloadUrl, publicId: path };
 }
 
 interface PhotoFieldProps {
@@ -44,8 +93,10 @@ interface PhotoFieldProps {
   photo: ChargerPhoto | null;
   error?: string;
   busy: boolean;
+  progress: number | null;
   providerId: string;
   onBusyChange: (busy: boolean) => void;
+  onProgressChange: (progress: number | null) => void;
   onChange: (photo: ChargerPhoto | null) => void;
 }
 
@@ -56,8 +107,10 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
   photo,
   error,
   busy,
+  progress,
   providerId,
   onBusyChange,
+  onProgressChange,
   onChange,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,14 +132,22 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
 
     setLocalError('');
     onBusyChange(true);
+    onProgressChange(null);
     try {
-      onChange(await uploadPhoto(file, providerId));
+      onChange(await uploadPhoto(file, providerId, onProgressChange));
     } catch (uploadError) {
-      setLocalError(
-        uploadError instanceof Error ? uploadError.message : 'Upload failed. Please try again.'
-      );
+      const code = (uploadError as { code?: string } | null)?.code;
+      const message = code === 'storage/unauthorized'
+        ? 'Firebase Storage denied this upload. Deploy the project storage.rules and try again.'
+        : code === 'storage/canceled'
+          ? 'Upload was cancelled. Please retry.'
+          : uploadError instanceof Error
+            ? uploadError.message
+            : 'Upload failed. Please try again.';
+      setLocalError(message);
     } finally {
       onBusyChange(false);
+      onProgressChange(null);
     }
   };
 
@@ -100,7 +161,18 @@ const PhotoField: React.FC<PhotoFieldProps> = ({
       {busy ? (
         <div className="flex h-36 flex-col items-center justify-center gap-2 rounded border border-dashed border-[#E2E5E5] bg-[#F5F3F1] text-[#636563]">
           <LoaderCircle size={20} className="animate-spin text-black" />
-          <span className="text-[10px] font-sans uppercase tracking-wider text-black">Optimizing &amp; uploading…</span>
+          <span className="text-[10px] font-sans uppercase tracking-wider text-black">
+            {progress === null
+              ? 'Optimizing photo…'
+              : progress === 100
+                ? 'Finalizing photo…'
+                : `Uploading ${progress}%…`}
+          </span>
+          {progress !== null && (
+            <div className="h-1 w-40 overflow-hidden rounded bg-[#E2E5E5]" aria-label={`Upload ${progress}% complete`}>
+              <div className="h-full bg-black transition-[width]" style={{ width: `${progress}%` }} />
+            </div>
+          )}
         </div>
       ) : photo ? (
         <div className="overflow-hidden rounded border border-[#E2E5E5] bg-[#F5F3F1]">
@@ -186,6 +258,10 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState({ charger: false, space: false });
+  const [uploadProgress, setUploadProgress] = useState<{ charger: number | null; space: number | null }>({
+    charger: null,
+    space: null,
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -485,8 +561,10 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             photo={chargerPhoto}
             error={errors.chargerPhoto}
             busy={uploading.charger}
+            progress={uploadProgress.charger}
             providerId={providerId}
             onBusyChange={(busy) => setUploading((prev) => ({ ...prev, charger: busy }))}
+            onProgressChange={(progress) => setUploadProgress((prev) => ({ ...prev, charger: progress }))}
             onChange={setChargerPhoto}
           />
 
@@ -497,8 +575,10 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             photo={spacePhoto}
             error={errors.spacePhoto}
             busy={uploading.space}
+            progress={uploadProgress.space}
             providerId={providerId}
             onBusyChange={(busy) => setUploading((prev) => ({ ...prev, space: busy }))}
+            onProgressChange={(progress) => setUploadProgress((prev) => ({ ...prev, space: progress }))}
             onChange={setSpacePhoto}
           />
         </div>

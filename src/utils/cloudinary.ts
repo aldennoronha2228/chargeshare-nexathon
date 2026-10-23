@@ -129,13 +129,21 @@ export async function uploadImageToCloudinary(
   }
 
   let response: Response;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 60_000);
   try {
     response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
       method: 'POST',
       body,
+      signal: controller.signal,
     });
   } catch {
+    if (controller.signal.aborted) {
+      throw new Error('Cloudinary upload timed out after 60 seconds. Check your connection and try again.');
+    }
     throw new Error('Could not reach Cloudinary. Check your connection and try again.');
+  } finally {
+    window.clearTimeout(timeout);
   }
 
   const payload = (await response.json().catch(() => ({}))) as CloudinaryUploadResponse;
