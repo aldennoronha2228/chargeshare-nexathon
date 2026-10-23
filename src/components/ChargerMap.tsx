@@ -183,12 +183,18 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
   // Map from charger.id → marker instance
   const markersRef   = useRef<Map<string, maplibregl.Marker>>(new Map());
   const popupRef     = useRef<maplibregl.Popup | null>(null);
+  const chargersRef = useRef(chargers);
+  const onSelectRef = useRef(onSelectCharger);
+  const onViewDetailsRef = useRef(onViewDetails);
+  chargersRef.current = chargers;
+  onSelectRef.current = onSelectCharger;
+  onViewDetailsRef.current = onViewDetails;
 
   const [mapReady,  setMapReady]  = useState(false);
   const [mapError,  setMapError]  = useState<string | null>(null);
   const [locating,  setLocating]  = useState(false);
   const [locError,  setLocError]  = useState<string | null>(null);
-  const [noCoords,  setNoCoords]  = useState(false);
+  const [missingCoordinates, setMissingCoordinates] = useState(0);
 
   // ── 1. Initialise map once ────────────────────────────────────────────────
   useEffect(() => {
@@ -255,7 +261,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     popupRef.current?.remove();
 
     const validChargers = chargers.filter((c) => chargerLatLng(c) !== null);
-    setNoCoords(chargers.length > 0 && validChargers.length === 0);
+    setMissingCoordinates(chargers.length - validChargers.length);
 
     // Remove markers that are no longer in the results
     const currentIds = new Set(chargers.map((c) => c.id));
@@ -274,6 +280,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       const existing = markersRef.current.get(charger.id);
       if (existing) {
         // Restyle the existing marker element for the new state
+        existing.setLngLat([pos.lng, pos.lat]);
         const el = existing.getElement();
         const visual = markerVisual(charger, isSelected);
         el.style.cssText = visual.cssText;
@@ -288,8 +295,11 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
-          onSelectCharger(charger);
-          openPopup(map, charger, pos);
+          const currentCharger = chargersRef.current.find((item) => item.id === charger.id);
+          const currentPosition = currentCharger ? chargerLatLng(currentCharger) : null;
+          if (!currentCharger || !currentPosition) return;
+          onSelectRef.current(currentCharger);
+          openPopup(map, currentCharger, currentPosition);
         });
 
         markersRef.current.set(charger.id, marker);
@@ -325,7 +335,7 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
     if (!pos) return;
 
     openPopup(map, charger, pos);
-  }, [selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chargers, selectedChargerId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openPopup(
     map: maplibregl.Map,
@@ -351,7 +361,8 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       const btn = el?.querySelector<HTMLDivElement>(`[data-charger-id="${charger.id}"]`);
       btn?.addEventListener('click', () => {
         popup.remove();
-        onViewDetails(charger);
+      const currentCharger = chargersRef.current.find((item) => item.id === charger.id);
+      onViewDetailsRef.current(currentCharger ?? charger);
       });
     });
 
@@ -437,10 +448,10 @@ export const ChargerMap: React.FC<ChargerMapProps> = ({
       )}
 
       {/* No coordinates warning (shown as a banner, not full overlay) */}
-      {noCoords && mapReady && (
+      {missingCoordinates > 0 && mapReady && (
         <div className="absolute top-2 left-2 right-2 z-10 flex items-start gap-2 bg-[#FFFAEB] border border-[#FEC84B] rounded px-3 py-2 text-xs text-[#7A4F00] shadow">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>None of the filtered chargers have valid coordinates. Coordinates must be in "DD.DDDD° N" format.</span>
+          <span>{missingCoordinates} listing{missingCoordinates === 1 ? '' : 's'} {missingCoordinates === 1 ? 'needs' : 'need'} an exact location. Ask the provider to update its map location.</span>
         </div>
       )}
 

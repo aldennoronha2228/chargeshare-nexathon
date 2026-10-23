@@ -1121,15 +1121,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
             <p className="sr-only">{locationLabel} · {summary.hosts} hosts · {isDefaultFilters ? 'nearest first' : `sorted by ${sortBy}`}</p>
           </div>
 
-          {view === 'list' && !showAll && results.length > INITIAL_VISIBLE && (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="shrink-0 cursor-pointer text-[12px] font-bold text-[#173D2C] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173D2C]"
-            >
-              View all ({results.length})
-            </button>
-          )}
         </div>
 
         {/* ── Results ──────────────────────────────────────────────────────── */}
@@ -1163,19 +1154,19 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
           </div>
         ) : (
           <div className="mt-4 space-y-3">
-            {view === 'list' && primaryCharger && (
+            {primaryCharger && (
               <PrimaryChargerCard {...cardProps(primaryCharger)} />
             )}
 
-            {view === 'list' && compactChargers.map((charger) => (
+            {compactChargers.map((charger) => (
               <CompactChargerCard key={charger.id} {...cardProps(charger)} />
             ))}
 
-            {view === 'list' && miniChargers.map((charger) => (
+            {miniChargers.map((charger) => (
               <MiniChargerRow key={charger.id} {...cardProps(charger)} />
             ))}
 
-            {view === 'list' && !showAll && results.length > visibleResults.length && (
+            {!showAll && results.length > visibleResults.length && (
               <button
                 type="button"
                 onClick={() => setShowAll(true)}
@@ -1186,12 +1177,6 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
               </button>
             )}
 
-            {view === 'map' && (
-              <p className="rounded-2xl border border-[#D8D5CA] bg-white px-4 py-3 text-center text-[12px] text-[#565A52]">
-                Map view — tap a price marker to preview a charger, or switch to List to browse the
-                full details.
-              </p>
-            )}
           </div>
         )}
 

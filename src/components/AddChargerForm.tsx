@@ -3,7 +3,7 @@ import { Camera, Check, LoaderCircle, Trash2, X, Zap } from 'lucide-react';
 import type { ConnectorType, IndianCity } from '../data/demoChargers';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
 import { validateProviderChargerForm } from '../utils/marketplaceLogic';
-import { CITY_MAP_CENTERS, type ChargerPhoto, type NewProviderCharger, type ProviderCharger } from '../utils/providerChargers';
+import type { ChargerPhoto, NewProviderCharger, ProviderCharger } from '../utils/providerChargers';
 
 const CITIES: Exclude<IndianCity, 'All Cities'>[] = [
   'Bengaluru',
@@ -188,10 +188,9 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
     && initialCharger?.coordinates?.lng === 77.5946;
   const [coordinates, setCoordinates] = useState(() => {
     const initial = initialCharger?.coordinates;
-    const center = CITY_MAP_CENTERS[initialCharger?.city ?? 'Bengaluru'];
     return initial && !legacyDefaultPoint
       ? { lat: String(initial.lat), lng: String(initial.lng) }
-      : { lat: String(center.lat), lng: String(center.lng) };
+      : { lat: '', lng: '' };
   });
   const [preciseLocation, setPreciseLocation] = useState(Boolean(initialCharger?.coordinates && !legacyDefaultPoint));
   const [locating, setLocating] = useState(false);
@@ -260,10 +259,10 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
 
     const latitude = Number(coordinates.lat);
     const longitude = Number(coordinates.lng);
-    if (!coordinates.lat.trim() || !coordinates.lng.trim()
+    if (!preciseLocation || !coordinates.lat.trim() || !coordinates.lng.trim()
       || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
       || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      setErrors((prev) => ({ ...prev, coordinates: 'Enter valid map coordinates (latitude -90–90, longitude -180–180).' }));
+      setErrors((prev) => ({ ...prev, coordinates: 'Set the charger’s exact location with the location button or enter its coordinates. A city-centre pin is not accurate enough.' }));
       return;
     }
 
@@ -491,14 +490,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
               <select
                 id="charger-city"
                 value={city}
-                onChange={(event) => {
-                  const nextCity = event.target.value as Exclude<IndianCity, 'All Cities'>;
-                  setCity(nextCity);
-                  if (!preciseLocation) {
-                    const center = CITY_MAP_CENTERS[nextCity];
-                    setCoordinates({ lat: String(center.lat), lng: String(center.lng) });
-                  }
-                }}
+                onChange={(event) => setCity(event.target.value as Exclude<IndianCity, 'All Cities'>)}
                 className={INPUT}
               >
                 {CITIES.map((c) => (
@@ -517,7 +509,7 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
             <div>
               <p className={LABEL}>Map Location</p>
               <p className="mt-1 text-[11px] text-[#747878]">
-                Default is the city centre. Pin the exact charger location for drivers.
+                Set the exact charger location so drivers see the correct map pin.
               </p>
             </div>
             <button
