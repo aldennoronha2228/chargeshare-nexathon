@@ -18,7 +18,7 @@ For production, also set `ADMIN_SESSION_SECRET` to a random value of at least 32
 
 ## Configure backend access to Firestore
 
-Admin identities stay in `ADMIN_USERS`; the server does not create or look up admin records in Firestore. After the server validates that allowlist and issues its HTTP-only session, it reads the app data with Firebase Admin. Firebase Admin runs only on the server and bypasses Firestore security rules for these reads. Do not make Firestore collections public to enable the dashboard.
+The server checks `admin_users/{email}` for both Google and password sign-in. `ADMIN_USERS` is only a legacy startup indicator and does not authorize anyone. The same Firebase Admin service identity is used to verify Google ID tokens and to read app data. Firebase Admin runs only on the server and bypasses Firestore security rules; do not make Firestore collections public to enable the dashboard.
 
 This backend connection uses a Firebase service identity. It is separate from the list of people allowed to log in: it grants the server permission to access the project, rather than defining who is an admin. Locally, provide a service account with Firestore read access and Firebase Authentication user-list access. Use either option in `.env`:
 
@@ -26,9 +26,11 @@ This backend connection uses a Firebase service identity. It is separate from th
 GOOGLE_APPLICATION_CREDENTIALS="C:/secure/chargeshare-service-account.json"
 ```
 
+Make sure this path points to an existing service-account JSON file on the machine running `npm run dev`. Alternatively, set `FIREBASE_SERVICE_ACCOUNT_JSON` to the complete one-line JSON value. The service account's project must match `VITE_FIREBASE_PROJECT_ID`.
+
 Or put the downloaded service-account JSON on one line in `.env` as `FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'`. Replace the example with the complete JSON contents; do not include `...`. Never commit `.env` or share the private key. On Cloud Run, assign a service identity with Firebase Authentication Viewer and Firestore read permissions instead of downloading a key.
 
-The Firebase web API key and `ADMIN_USERS` alone cannot provide privileged backend access. That is why a missing service-account credential stops the dashboard from loading Firebase records even when admin login succeeds.
+The Firebase web API key and `ADMIN_USERS` alone cannot provide privileged backend access. A missing service-account credential prevents Google admin sign-in and dashboard data access.
 
 ## Geocode charger pins
 

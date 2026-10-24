@@ -315,8 +315,11 @@ app.post('/api/admin/google-session', async (request, response) => {
     }
     setSessionCookie(response, email);
     response.json({ authenticated: true, email });
-  } catch {
-    response.status(401).json({ error: 'Google sign-in could not be verified by the server.' });
+  } catch (error) {
+    console.error('[admin] Google sign-in verification failed:', error instanceof Error ? error.message : 'Unknown Firebase Admin error.');
+    response.status(503).json({
+      error: 'The admin server could not verify Google sign-in. Check that GOOGLE_APPLICATION_CREDENTIALS points to an existing Firebase service-account file, or set FIREBASE_SERVICE_ACCOUNT_JSON, and confirm it belongs to the same Firebase project as the web app.',
+    });
   }
 });
 
