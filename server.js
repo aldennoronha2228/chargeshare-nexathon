@@ -157,6 +157,7 @@ function readAdminAccounts() {
 const adminAccounts = readAdminAccounts();
 const adminEmails = new Set(adminAccounts.map(({ email }) => email));
 const authAttempts = new Map();
+const providerUploadAttempts = new Map();
 
 function requestIsSameOrigin(request) {
   const origin = request.get('origin');
@@ -294,6 +295,164 @@ app.post('/api/admin/logout', (request, response) => {
   if (!requestIsSameOrigin(request)) return response.status(403).json({ error: 'Sign-out request was rejected.' });
   clearSessionCookie(response);
   response.status(204).end();
+});
+
+function getCloudinaryServerConfig() {
+  const configuredUrl = process.env.CLOUDINARY_URL || '';
+  const match = configuredUrl.match(/^cloudinary:\/\/([^:]+):(.+)@([^/]+)\/?$/i);
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || match?.[3] || '';
+  const apiKey = process.env.CLOUDINARY_API_KEY || match?.[1] || '';
+  const apiSecret = process.env.CLOUDINARY_API_SECRET || match?.[2] || '';
+  return { cloudName, apiKey, apiSecret };
+}
+
+function signCloudinaryParameters(parameters, apiSecret) {
+  const payload = Object.keys(parameters).sort().map((key) => `${key}=${parameters[key]}`).join('&');
+  return crypto.createHash('sha1').update(`${payload}${apiSecret}`).digest('hex');
+}
+
+async function verifyProviderUploadToken(idToken) {
+  const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_WEB_API_KEY;
+  if (!apiKey) throw new Error('Firebase web API key is not configured on the server.');
+
+  // Firebase Auth validates the ID token here without requiring a service-account file.
+  const lookup = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const result = await lookup.json().catch(() => ({}));
+  const account = result?.users?.[0];
+  if (!lookup.ok || !account?.localId || account.disabled === true) {
+    throw new Error('The Firebase sign-in token is invalid or expired.');
+  }
+  return account.localId;
+}
+
+app.post('/api/cloudinary/upload-signature', async (request, response) => {
+  const authorization = request.get('authorization') || '';
+  const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!idToken) return response.status(401).json({ error: 'Sign in before uploading provider documents.' });
+  const purpose = request.body?.purpose;
+  if (!['charger', 'verification'].includes(purpose)) return response.status(400).json({ error: 'Invalid image upload purpose.' });
+
+  try {
+    const uid = await verifyProviderUploadToken(idToken);
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) return response.status(403).json({ error: 'This account cannot upload provider documents.' });
+    const now = Date.now();
+    const previous = providerUploadAttempts.get(uid);
+    if (previous && now - previous.startedAt < 60_000 && previous.count >= 30) {
+      return response.status(429).json({ error: 'Too many image uploads. Wait a minute and retry.' });
+    }
+    providerUploadAttempts.set(uid, !previous || now - previous.startedAt >= 60_000
+      ? { startedAt: now, count: 1 }
+      : { startedAt: previous.startedAt, count: previous.count + 1 });
+
+    const cloudinary = getCloudinaryServerConfig();
+    if (!cloudinary.cloudName || !cloudinary.apiKey || !cloudinary.apiSecret) {
+      return response.status(503).json({ error: 'Cloudinary credentials are not configured on the server.' });
+    }
+    const parameters = {
+      folder: purpose === 'verification'
+        ? `chargeshare/providers/${uid}/verification`
+        : `chargeshare/providers/${uid}`,
+      timestamp: Math.floor(now / 1000),
+      type: purpose === 'verification' ? 'authenticated' : 'upload',
+    };
+    response.setHeader('Cache-Control', 'no-store');
+    response.json({
+      ...parameters,
+      api_key: cloudinary.apiKey,
+      signature: signCloudinaryParameters(parameters, cloudinary.apiSecret),
+      cloudName: cloudinary.cloudName,
+    });
+  } catch (error) {
+    console.error('[provider-application] Could not validate upload identity:', error instanceof Error ? error.message : 'Unknown Firebase Auth error.');
+    const detail = error instanceof Error ? error.message : '';
+    const configurationProblem = /API key is not configured|fetch failed|ENOTFOUND|ECONNREFUSED|timed out|timeout|aborted/i.test(detail);
+    response.status(configurationProblem ? 503 : 401).json({
+      error: configurationProblem
+        ? 'Could not verify your sign-in with Firebase. Check the Firebase web API key and server network, then restart npm run dev.'
+        : 'Your sign-in could not be verified. Sign in again and retry.',
+    });
+  }
+});
+
+app.get('/api/admin/providers/:providerId/documents/:documentType', requireAdmin, async (request, response) => {
+  const fieldMap = {
+    electricityBill: ['electricityBillPublicId', 'electricityBillVersion', 'electricityBillFormat'],
+    ownershipProof: ['ownershipProofPublicId', 'ownershipProofVersion', 'ownershipProofFormat'],
+  };
+  const fields = fieldMap[request.params.documentType];
+  if (!fields) return response.status(404).json({ error: 'Provider document not found.' });
+
+  try {
+    const providerSnapshot = await getFirestore(getFirebaseAdminApp()).collection('providers').doc(request.params.providerId).get();
+    if (!providerSnapshot.exists) return response.status(404).json({ error: 'Provider application not found.' });
+    const [publicId, version, format] = fields.map((field) => providerSnapshot.get(field));
+    if (typeof publicId !== 'string' || !Number.isInteger(version) || typeof format !== 'string'
+      || !/^[a-z0-9]+$/i.test(format) || !/^[A-Za-z0-9_/-]+$/.test(publicId)) {
+      return response.status(404).json({ error: 'Provider document is not available.' });
+    }
+    const { cloudName, apiSecret } = getCloudinaryServerConfig();
+    if (!cloudName || !apiSecret) return response.status(503).json({ error: 'Cloudinary server credentials are not configured.' });
+    const deliveryPath = `v${version}/${publicId}.${format}`;
+    const signature = crypto.createHash('sha1').update(`${deliveryPath}${apiSecret}`).digest('base64url').slice(0, 8);
+    const encodedPath = deliveryPath.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+    const imageUrl = `https://res.cloudinary.com/${encodeURIComponent(cloudName)}/image/authenticated/s--${signature}--/${encodedPath}`;
+    const upstream = await fetch(imageUrl, { signal: AbortSignal.timeout(15_000) });
+    if (!upstream.ok) {
+      console.error('[admin] Cloudinary document preview failed:', upstream.status);
+      return response.status(502).json({ error: 'Could not load the provider document preview.' });
+    }
+    const contentType = upstream.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) return response.status(502).json({ error: 'The uploaded document is not an image.' });
+    const image = Buffer.from(await upstream.arrayBuffer());
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    response.type(contentType).send(image);
+  } catch (error) {
+    console.error('[admin] Provider document preview failed:', error instanceof Error ? error.message : 'Unknown error.');
+    response.status(503).json({ error: 'Could not load the provider document preview.' });
+  }
+});
+
+app.post('/api/admin/providers/:providerId/review', requireAdmin, async (request, response) => {
+  if (!requestIsSameOrigin(request)) return response.status(403).json({ error: 'Review request was rejected.' });
+  const providerId = request.params.providerId;
+  const decision = request.body?.decision;
+  if (!providerId || !['approved', 'declined'].includes(decision)) {
+    return response.status(400).json({ error: 'Choose whether to accept or decline this provider application.' });
+  }
+  try {
+    const firestore = getFirestore(getFirebaseAdminApp());
+    const providerRef = firestore.collection('providers').doc(providerId);
+    const provider = await providerRef.get();
+    if (!provider.exists || provider.data()?.applicationStatus !== 'under_review') {
+      return response.status(409).json({ error: 'This provider application is no longer waiting for review.' });
+    }
+    const reviewedAt = new Date().toISOString();
+    const batch = firestore.batch();
+    batch.update(providerRef, {
+      applicationStatus: decision,
+      applicationReviewedAt: reviewedAt,
+      applicationReviewedBy: request.adminSession.email,
+    });
+    const auditRef = firestore.collection('admin_audit_logs').doc();
+    batch.set(auditRef, {
+      action: `provider_application_${decision}`,
+      providerId,
+      adminEmail: request.adminSession.email,
+      createdAt: reviewedAt,
+    });
+    await batch.commit();
+    response.json({ providerId, applicationStatus: decision, applicationReviewedAt: reviewedAt });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : '';
+    console.error('[admin] Provider application review failed:', detail || 'Unknown Firestore error.');
+    response.status(503).json({ error: 'Could not save the provider decision. Check the Firebase Admin connection and try again.' });
+  }
 });
 
 function serializeValue(value) {

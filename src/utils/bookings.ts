@@ -46,6 +46,11 @@ export interface Booking {
   clientReachedAt?: number;
   arrivalCodeHash?: string;
   sessionStartedAt?: number;
+  sessionEndedAt?: number;
+  sessionDurationSeconds?: number;
+  chargerPowerKw?: number;
+  pricePerKwh?: number;
+  pricingType?: 'per_kwh' | 'per_session';
 }
 
 export interface NewBookingRequest {
@@ -62,6 +67,9 @@ export interface NewBookingRequest {
   endTime: string;
   totalKwh: number;
   totalPrice: number;
+  chargerPowerKw: number;
+  pricePerKwh: number;
+  pricingType: 'per_kwh' | 'per_session';
 }
 
 export async function createBookingRequest(input: NewBookingRequest): Promise<string> {
@@ -69,7 +77,9 @@ export async function createBookingRequest(input: NewBookingRequest): Promise<st
     throw new Error('A signed-in driver and an active provider listing are required to book.');
   }
   if (!Number.isFinite(input.totalKwh) || input.totalKwh < 2 || input.totalKwh > 100
-    || !Number.isFinite(input.totalPrice) || input.totalPrice <= 0) {
+    || !Number.isFinite(input.totalPrice) || input.totalPrice <= 0
+    || !Number.isFinite(input.chargerPowerKw) || input.chargerPowerKw <= 0
+    || !Number.isFinite(input.pricePerKwh) || input.pricePerKwh <= 0) {
     throw new Error('Check the requested energy amount and charger price, then try again.');
   }
 
@@ -122,6 +132,11 @@ function toBooking(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
     clientReachedAt: data.clientReachedAt,
     arrivalCodeHash: data.arrivalCodeHash,
     sessionStartedAt: data.sessionStartedAt,
+    sessionEndedAt: data.sessionEndedAt,
+    sessionDurationSeconds: data.sessionDurationSeconds,
+    chargerPowerKw: data.chargerPowerKw,
+    pricePerKwh: data.pricePerKwh,
+    pricingType: data.pricingType === 'per_session' ? 'per_session' : 'per_kwh',
   };
 }
 
@@ -213,16 +228,46 @@ export const rejectBooking = (bookingId: string) => updateBookingStatus(bookingI
 /** Cancel a booking. */
 export const cancelBooking = (bookingId: string) => updateBookingStatus(bookingId, 'cancelled');
 
-/** Complete a booking and record final usage. */
-export async function completeBooking(
-  bookingId: string,
-  totalKwh: number,
-  totalPrice: number
-): Promise<void> {
-  const platformFee = totalPrice * 0.1; // 10% platform fee
-  const providerEarnings = totalPrice - platformFee;
-  
+/** Finalizes the session and calculates the bill from its duration and charger tariff. */
+export async function completeBooking(bookingId: string): Promise<void> {
   const reference = doc(db, 'bookings', bookingId);
+  const snapshot = await getDoc(reference);
+  if (!snapshot.exists()) throw new Error('This booking could not be found.');
+
+  const booking = snapshot.data();
+  const sessionStartedAt = Number(booking.sessionStartedAt);
+  if (booking.status !== 'accepted' || !Number.isFinite(sessionStartedAt) || sessionStartedAt <= 0) {
+    throw new Error('The charging session has not started.');
+  }
+
+  let chargerPowerKw = Number(booking.chargerPowerKw);
+  let pricePerKwh = Number(booking.pricePerKwh);
+  let pricingType = booking.pricingType === 'per_session' ? 'per_session' : 'per_kwh';
+  if (!Number.isFinite(chargerPowerKw) || chargerPowerKw <= 0
+    || !Number.isFinite(pricePerKwh) || pricePerKwh <= 0) {
+    const listing = await getDoc(doc(db, 'public_chargers', String(booking.chargerId)));
+    if (!listing.exists()) throw new Error('Charger pricing is unavailable, so this session cannot be billed.');
+    chargerPowerKw = Number(listing.data().powerKw);
+    pricePerKwh = Number(listing.data().price);
+    pricingType = listing.data().pricingType === 'per_session' ? 'per_session' : 'per_kwh';
+  }
+  if (!Number.isFinite(chargerPowerKw) || chargerPowerKw <= 0
+    || !Number.isFinite(pricePerKwh) || pricePerKwh <= 0) {
+    throw new Error('Charger power or pricing is invalid. Update the listing before completing this session.');
+  }
+
+  const sessionEndedAt = Date.now();
+  const durationMs = Math.max(0, sessionEndedAt - sessionStartedAt);
+  const sessionDurationSeconds = Math.floor(durationMs / 1000);
+  const totalKwh = (durationMs / 3_600_000) * chargerPowerKw;
+  const scheduledDurationMs = Date.parse(String(booking.endTime)) - Date.parse(String(booking.startTime));
+  const rawTotalPrice = pricingType === 'per_session' && scheduledDurationMs > 0
+    ? Number(booking.totalPrice) * (durationMs / scheduledDurationMs)
+    : totalKwh * pricePerKwh;
+  const totalPrice = Math.round(rawTotalPrice * 100) / 100;
+  const platformFee = Math.round(totalPrice * 0.1 * 100) / 100;
+  const providerEarnings = Math.round((totalPrice - platformFee) * 100) / 100;
+
   await setDoc(
     reference,
     {
@@ -231,6 +276,11 @@ export async function completeBooking(
       totalPrice,
       platformFee,
       providerEarnings,
+      sessionEndedAt,
+      sessionDurationSeconds,
+      chargerPowerKw,
+      pricePerKwh,
+      pricingType,
     },
     { merge: true }
   );

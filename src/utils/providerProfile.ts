@@ -9,6 +9,17 @@ export interface ProviderProfile {
   payoutUpiId?: string;
   accountType?: 'Individual Residential' | 'Apartment RWA' | 'Commercial Host';
   address?: string;
+  propertyAddress?: string;
+  electricityBillPublicId?: string;
+  electricityBillVersion?: number;
+  electricityBillFormat?: string;
+  ownershipProofPublicId?: string;
+  ownershipProofVersion?: number;
+  ownershipProofFormat?: string;
+  applicationStatus?: 'under_review' | 'approved' | 'declined';
+  applicationReviewedAt?: string;
+  applicationReviewedBy?: string;
+  registrationCompletedAt?: string;
   city?: string;
   updatedAt?: string;
 }

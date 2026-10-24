@@ -26,6 +26,7 @@ import {
 import type { Booking, BookingStatus } from '../utils/bookings';
 import type { ProviderProfile } from '../utils/providerProfile';
 import type { PublicProviderCharger } from '../utils/providerChargers';
+import { getAdminApiError } from '../utils/adminApi';
 
 type Section = 'overview' | 'accounts' | 'bookings' | 'clients' | 'providers' | 'chargers' | 'reviews' | 'transactions' | 'refunds' | 'payouts' | 'audit' | 'settings';
 type UserProfile = { id?: string; uid?: string; displayName?: string; email?: string; phoneNumber?: string; createdAt?: string; lastSignInAt?: string; accountStatus?: string; emailVerified?: boolean; disabled?: boolean; authProviders?: string[] };
@@ -81,9 +82,9 @@ function getName(record: { displayName?: string; name?: string; email?: string; 
 }
 
 function statusTone(status: string): string {
-  if (['active', 'accepted', 'completed', 'successful', 'paid'].includes(status.toLowerCase())) return 'bg-[#E8F2EC] text-[#24543B]';
-  if (['pending', 'processing'].includes(status.toLowerCase())) return 'bg-[#F4F0E6] text-[#765D22]';
-  if (['inactive', 'rejected', 'cancelled', 'failed'].includes(status.toLowerCase())) return 'bg-[#F5E9E7] text-[#87463D]';
+  if (['active', 'accepted', 'approved', 'completed', 'successful', 'paid'].includes(status.toLowerCase())) return 'bg-[#E8F2EC] text-[#24543B]';
+  if (['pending', 'processing', 'under review'].includes(status.toLowerCase())) return 'bg-[#F4F0E6] text-[#765D22]';
+  if (['inactive', 'rejected', 'declined', 'cancelled', 'failed'].includes(status.toLowerCase())) return 'bg-[#F5E9E7] text-[#87463D]';
   return 'bg-[#F0F0EE] text-[#555]';
 }
 
@@ -216,6 +217,10 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
   const [bookingFilter, setBookingFilter] = useState<'all' | BookingStatus>('all');
   const [page, setPage] = useState(1);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [reviewingProviderId, setReviewingProviderId] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -243,7 +248,7 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
         });
         setError(payload.sourceErrors?.join(' ') ?? '');
       } catch (loadError) {
-        if (active) setError(loadError instanceof Error ? loadError.message : 'Admin records could not be loaded.');
+        if (active) setError(getAdminApiError(loadError, 'Admin records could not be loaded.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -254,7 +259,7 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
       active = false;
       window.clearInterval(refreshTimer);
     };
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => { setSearch(''); setPage(1); setBookingFilter('all'); }, [section]);
   useEffect(() => { setPage(1); }, [search, bookingFilter]);
@@ -279,6 +284,7 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
     .some((value) => String(value ?? '').toLowerCase().includes(search.trim().toLowerCase())));
   const matchingProviders = data.providers.filter((provider) => [getName(provider), provider.email, provider.uid, provider.city]
     .some((value) => String(value ?? '').toLowerCase().includes(search.trim().toLowerCase())));
+  const pendingProviderApplications = data.providers.filter((provider) => provider.applicationStatus === 'under_review');
   const matchingChargers = data.chargers.filter((charger) => [charger.id, charger.title, charger.locality, charger.city, charger.providerId]
     .some((value) => String(value ?? '').toLowerCase().includes(search.trim().toLowerCase())));
   const matchingReviews = data.reviews.filter((review) => [review.id, review.userName, review.userId, review.providerId, review.chargerId, review.comment]
@@ -287,6 +293,28 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
   const registeredCount = new Set([...data.users.map((user) => user.uid || user.id), ...data.providers.map((provider) => provider.uid || provider.id)].filter(Boolean)).size;
   const activeChargers = data.chargers.filter((charger) => charger.status === 'active').length;
   const pageTitle = SECTIONS.find((item) => item.id === section)?.label ?? 'Overview';
+
+  const decideProviderApplication = async (providerId: string, decision: 'approved' | 'declined') => {
+    setReviewingProviderId(providerId);
+    setReviewMessage('');
+    setReviewError('');
+    try {
+      const response = await fetch(`/api/admin/providers/${encodeURIComponent(providerId)}/review`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Could not save the provider decision.');
+      setReviewMessage(`Provider application ${decision}.`);
+      setRefreshKey((value) => value + 1);
+    } catch (decisionError) {
+      setReviewError(decisionError instanceof Error ? decisionError.message : 'Could not save the provider decision.');
+    } finally {
+      setReviewingProviderId('');
+    }
+  };
 
   const navItems = (
     <>
@@ -301,6 +329,7 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
           <Icon size={16} aria-hidden="true" />
           <span className="flex-1">{label}</span>
           {id === 'bookings' && statusCounts.pending > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${section === id ? 'bg-black/10' : 'bg-white/15'}`}>{statusCounts.pending}</span>}
+          {id === 'providers' && pendingProviderApplications.length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${section === id ? 'bg-black/10' : 'bg-white/15'}`}>{pendingProviderApplications.length}</span>}
         </button>
       ))}
     </>
@@ -448,12 +477,55 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
 
           {section === 'providers' && (
             <>
-              <PageHeading title="Providers" subtitle="Provider profiles, Firebase accounts, all owned charger records, and booking activity." />
-              <div className="flex flex-col gap-3 sm:flex-row"><SearchBox value={search} onChange={setSearch} placeholder="Search by provider name, email, city, or ID" /><button type="button" disabled={!matchingProviders.length} onClick={() => exportCsv('chargeshare-providers.csv', matchingProviders.map((provider) => ({ providerName: getName(provider), email: provider.email || '', providerId: provider.uid || provider.id, location: [provider.city, provider.address].filter(Boolean).join(', '), chargerCount: data.chargers.filter((charger) => charger.providerId === (provider.uid || provider.id)).length, bookingCount: data.bookings.filter((booking) => booking.providerId === (provider.uid || provider.id)).length })))} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold hover:bg-black/5 disabled:opacity-40"><Download size={14} />Export CSV</button></div>
+              <PageHeading title="Providers" subtitle="Review new provider applications, then manage provider profiles and marketplace activity." />
+              {reviewMessage && <p role="status" className="rounded-lg border border-[#D5D5D5] bg-white px-4 py-3 text-xs font-semibold">{reviewMessage}</p>}
+              {reviewError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{reviewError}</p>}
+              <TableFrame title="Applications awaiting review" description="Review the submitted property details and documents before accepting or declining." count={pendingProviderApplications.length}>
+                {loading ? <EmptyTable message="Loading provider applications…" /> : pendingProviderApplications.length === 0 ? <EmptyTable message="There are no provider applications waiting for review." /> : (
+                  <div className="grid gap-4 p-4 lg:grid-cols-2">
+                    {pendingProviderApplications.map((provider) => {
+                      const uid = provider.uid || provider.id;
+                      const documents = [
+                        { key: 'electricityBill', label: 'Electricity bill', publicId: provider.electricityBillPublicId },
+                        { key: 'ownershipProof', label: 'Ownership confirmation', publicId: provider.ownershipProofPublicId },
+                      ];
+                      return (
+                        <article key={uid} className="rounded-xl border border-black/10 bg-[#FCFCFB] p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="truncate text-sm font-bold">{getName(provider)}</h3>
+                              <p className="mt-1 break-all text-xs text-black/55">{provider.email || 'No email provided'}</p>
+                            </div>
+                            <StatusBadge value="under review" />
+                          </div>
+                          <p className="mt-3 text-xs leading-5 text-black/65"><span className="font-semibold text-black">Property:</span> {provider.propertyAddress || provider.address || 'No address provided'}</p>
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            {documents.map(({ key, label, publicId }) => (
+                              <div key={label} className="overflow-hidden rounded-lg border border-black/10 bg-white">
+                                {publicId ? (
+                                  <a href={`/api/admin/providers/${encodeURIComponent(uid)}/documents/${key}`} target="_blank" rel="noreferrer" className="block" aria-label={`Open ${label}`}>
+                                    <img src={`/api/admin/providers/${encodeURIComponent(uid)}/documents/${key}`} alt={label} className="h-36 w-full object-cover" />
+                                  </a>
+                                ) : <div className="flex h-36 items-center justify-center px-3 text-center text-[11px] text-black/45">Document not available</div>}
+                                <p className="border-t border-black/5 px-2.5 py-2 text-[10px] font-semibold">{label}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 flex gap-2">
+                            <button type="button" disabled={reviewingProviderId === uid} onClick={() => void decideProviderApplication(uid, 'approved')} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-black px-3 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"><Check size={14} />Accept</button>
+                            <button type="button" disabled={reviewingProviderId === uid} onClick={() => void decideProviderApplication(uid, 'declined')} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold text-black hover:bg-black/5 disabled:opacity-50"><X size={14} />Decline</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </TableFrame>
+              <div className="flex flex-col gap-3 sm:flex-row"><SearchBox value={search} onChange={setSearch} placeholder="Search by provider name, email, city, or ID" /><button type="button" disabled={!matchingProviders.length} onClick={() => exportCsv('chargeshare-providers.csv', matchingProviders.map((provider) => ({ providerName: getName(provider), email: provider.email || '', providerId: provider.uid || provider.id, location: [provider.city, provider.propertyAddress || provider.address].filter(Boolean).join(', '), applicationStatus: provider.applicationStatus || 'existing provider', chargerCount: data.chargers.filter((charger) => charger.providerId === (provider.uid || provider.id)).length, bookingCount: data.bookings.filter((booking) => booking.providerId === (provider.uid || provider.id)).length })))} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold hover:bg-black/5 disabled:opacity-40"><Download size={14} />Export CSV</button></div>
               <TableFrame title="Provider directory" description="Provider profiles and linked marketplace activity." count={matchingProviders.length}>
                 {loading ? <EmptyTable message="Loading provider profiles…" /> : matchingProviders.length === 0 ? <EmptyTable message="No provider profiles match this search." /> : (
-                  <DataTable headers={['Provider', 'Email', 'Location', 'Account', 'Chargers', 'Bookings', 'Provider ID']}>
-                    {pageSlice(matchingProviders).map((provider) => { const uid = provider.uid || provider.id || ''; const account = data.authAccounts.find((item) => item.uid === uid); const chargers = data.chargers.filter((charger) => charger.providerId === uid).length; const bookings = data.bookings.filter((booking) => booking.providerId === uid).length; return <tr key={uid} className="hover:bg-black/[0.02]"><Cell>{getName(provider)}</Cell><Cell>{provider.email || account?.email || '—'}</Cell><Cell>{[provider.city, provider.address].filter(Boolean).join(', ') || '—'}</Cell><td className="px-4 py-3.5">{account ? <StatusBadge value={account.disabled ? 'disabled' : account.emailVerified ? 'verified' : 'unverified'} /> : 'No Auth account'}</td><Cell>{chargers}</Cell><Cell>{bookings}</Cell><Cell>{uid}</Cell></tr>; })}
+                  <DataTable headers={['Provider', 'Email', 'Location', 'Application', 'Account', 'Chargers', 'Bookings', 'Provider ID']}>
+                    {pageSlice(matchingProviders).map((provider) => { const uid = provider.uid || provider.id || ''; const account = data.authAccounts.find((item) => item.uid === uid); const chargers = data.chargers.filter((charger) => charger.providerId === uid).length; const bookings = data.bookings.filter((booking) => booking.providerId === uid).length; return <tr key={uid} className="hover:bg-black/[0.02]"><Cell>{getName(provider)}</Cell><Cell>{provider.email || account?.email || '—'}</Cell><Cell>{[provider.city, provider.address].filter(Boolean).join(', ') || provider.address || '—'}</Cell><td className="px-4 py-3.5">{provider.applicationStatus ? <StatusBadge value={provider.applicationStatus.replace('_', ' ')} /> : 'Existing provider'}</td><td className="px-4 py-3.5">{account ? <StatusBadge value={account.disabled ? 'disabled' : account.emailVerified ? 'verified' : 'unverified'} /> : 'No Auth account'}</td><Cell>{chargers}</Cell><Cell>{bookings}</Cell><Cell>{uid}</Cell></tr>; })}
                   </DataTable>
                 )}
                 <PageControls page={page} total={matchingProviders.length} onChange={setPage} />

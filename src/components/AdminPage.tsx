@@ -10,6 +10,7 @@ import type { MultiFactorError, MultiFactorResolver, User } from 'firebase/auth'
 import { ArrowLeft, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { auth } from '../firebase';
 import { navigateTo, ROUTES } from '../utils/appRoute';
+import { getAdminApiError } from '../utils/adminApi';
 import { AdminDashboard } from './AdminDashboard';
 
 type AccessState = 'checking' | 'signed-out' | 'admin';
@@ -44,10 +45,10 @@ export const AdminPage: React.FC = () => {
         const session = await response.json() as { authenticated?: boolean };
         setAccess(response.ok && session.authenticated ? 'admin' : 'signed-out');
       })
-      .catch(() => {
+      .catch((sessionError) => {
         if (active) {
           setAccess('signed-out');
-          setError('The admin server is unavailable. Restart the app with npm run dev.');
+          setError(getAdminApiError(sessionError, 'The admin server is unavailable.'));
         }
       });
     return () => { active = false; };
@@ -68,7 +69,7 @@ export const AdminPage: React.FC = () => {
       setPassword('');
       setAccess('admin');
     } catch (signInError) {
-      setError(signInError instanceof Error ? signInError.message : 'Sign-in failed. Try again.');
+      setError(getAdminApiError(signInError, 'Sign-in failed. Try again.'));
     } finally {
       setPending(false);
     }
@@ -92,7 +93,7 @@ export const AdminPage: React.FC = () => {
         }
         setError('This administrator account needs an enrolled authenticator app.');
       } else {
-        setError(signInError instanceof Error ? signInError.message : 'Google sign-in failed. Try again.');
+        setError(getAdminApiError(signInError, 'Google sign-in failed. Try again.'));
       }
       await signOut(auth).catch(() => undefined);
     } finally {

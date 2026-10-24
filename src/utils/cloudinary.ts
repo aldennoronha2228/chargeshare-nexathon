@@ -1,149 +1,72 @@
+import { auth } from '../firebase';
 import { optimizeImageForUpload } from './imageOptimization';
 
-interface CloudinaryCredentials {
-  cloudName: string;
-  apiKey: string;
-  apiSecret: string;
-}
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-function parseCloudinaryUrl(value: string): CloudinaryCredentials | null {
-  const withoutScheme = value.trim().replace(/^cloudinary:\/\//i, '');
-  const at = withoutScheme.lastIndexOf('@');
-  if (at === -1) return null;
-
-  const cloudName = withoutScheme.slice(at + 1).replace(/\/+$/, '');
-  const credentials = withoutScheme.slice(0, at);
-  const colon = credentials.indexOf(':');
-  if (colon === -1) return null;
-
-  const apiKey = credentials.slice(0, colon);
-  const apiSecret = credentials.slice(colon + 1);
-  if (!cloudName || !apiKey || !apiSecret) return null;
-
-  return { cloudName, apiKey, apiSecret };
-}
-
-/**
- * Reads credentials from the single CLOUDINARY_URL form
- * (cloudinary://<api_key>:<api_secret>@<cloud_name>) when present, otherwise
- * from the separate cloud name / key / secret variables.
- */
-const CREDENTIALS: CloudinaryCredentials | null =
-  parseCloudinaryUrl(import.meta.env.VITE_CLOUDINARY_URL ?? '') ?? {
-    cloudName: (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ?? '').trim(),
-    apiKey: (import.meta.env.VITE_CLOUDINARY_API_KEY ?? '').trim(),
-    apiSecret: (import.meta.env.VITE_CLOUDINARY_API_SECRET ?? '').trim(),
-  };
-
-const { cloudName: CLOUD_NAME, apiKey: API_KEY, apiSecret: API_SECRET } = CREDENTIALS;
-const UPLOAD_PRESET = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ?? '').trim();
-
-const UPLOAD_FOLDER_ROOT = 'chargeshare/providers';
-
-export const CLOUDINARY_NOT_CONFIGURED =
-  'Image uploads are not configured. Set VITE_CLOUDINARY_URL (cloudinary://<api_key>:<api_secret>@<cloud_name>) or the separate VITE_CLOUDINARY_CLOUD_NAME / VITE_CLOUDINARY_API_KEY / VITE_CLOUDINARY_API_SECRET variables.';
+export const CLOUDINARY_NOT_CONFIGURED = 'Cloudinary uploads are unavailable. Check the server Cloudinary credentials and restart npm run dev.';
 
 export interface CloudinaryImage {
+  /** Public delivery URL. Only set for ordinary charger photos. */
   url: string;
   publicId: string;
+  version: number;
+  format: string;
 }
 
 interface CloudinaryUploadResponse {
   secure_url?: string;
   public_id?: string;
+  version?: number;
+  format?: string;
   error?: { message?: string };
 }
 
-export function isCloudinaryConfigured(): boolean {
-  return CLOUD_NAME.length > 0 && (usesSignedUpload() || UPLOAD_PRESET.length > 0);
+interface UploadSignature {
+  api_key: string;
+  timestamp: number;
+  folder: string;
+  type: 'upload' | 'authenticated';
+  signature: string;
+  cloudName: string;
+  error?: string;
 }
 
-function usesSignedUpload(): boolean {
-  return API_KEY.length > 0 && API_SECRET.length > 0;
-}
-
-/**
- * One folder per provider so every provider's photos stay grouped together,
- * e.g. chargeshare/providers/<uid>.
- */
-export function providerUploadFolder(providerId: string): string {
-  const owner = providerId.replace(/[^A-Za-z0-9_-]/g, '') || 'unassigned';
-  return `${UPLOAD_FOLDER_ROOT}/${owner}`;
-}
-
-async function sha1Hex(input: string): Promise<string> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-1', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-/**
- * Builds the signed fields Cloudinary expects. `file`, `api_key` and
- * `signature` are excluded from the signature, and parameters must be signed
- * in alphabetical order.
- */
-async function buildSignatureFields(folder: string): Promise<Record<string, string>> {
-  const params: Record<string, string> = {
-    folder,
-    timestamp: Math.floor(Date.now() / 1000).toString(),
-  };
-
-  const toSign = Object.keys(params)
-    .sort()
-    .map((key) => `${key}=${params[key]}`)
-    .join('&');
-
-  return { ...params, api_key: API_KEY, signature: await sha1Hex(`${toSign}${API_SECRET}`) };
-}
-
-/**
- * Uploads an image straight from the browser into the provider's own folder.
- * Signs the request with api_key + api_secret when both are configured,
- * otherwise falls back to an unsigned upload preset.
- */
-export async function uploadImageToCloudinary(
-  file: File,
-  providerId: string,
-  onProgress?: (progress: number) => void,
-): Promise<CloudinaryImage> {
-  if (!isCloudinaryConfigured()) {
-    throw new Error(CLOUDINARY_NOT_CONFIGURED);
+async function getUploadSignature(purpose: 'charger' | 'verification', idToken: string): Promise<UploadSignature> {
+  const response = await fetch('/api/cloudinary/upload-signature', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ purpose }),
+  });
+  const result = await response.json().catch(() => ({})) as UploadSignature;
+  if (!response.ok || !result.signature || !result.cloudName) {
+    if (result.error === 'API route not found.') {
+      throw new Error('The server running this app is outdated and does not have the document upload route. Stop the old server on port 3001, then restart npm run dev from the chargeshare-nexathon folder.');
+    }
+    throw new Error(result.error || CLOUDINARY_NOT_CONFIGURED);
   }
+  return result;
+}
 
-  const folder = providerUploadFolder(providerId);
+async function sendSignedImage(file: File, signature: UploadSignature, onProgress?: (progress: number) => void): Promise<CloudinaryUploadResponse> {
   const body = new FormData();
   body.append('file', await optimizeImageForUpload(file));
-
-  if (usesSignedUpload()) {
-    if (!crypto.subtle) {
-      throw new Error('Signed uploads need a secure context (HTTPS or localhost).');
-    }
-    const fields = await buildSignatureFields(folder);
-    for (const [key, value] of Object.entries(fields)) {
-      body.append(key, value);
-    }
-  } else {
-    body.append('upload_preset', UPLOAD_PRESET);
-    body.append('folder', folder);
+  for (const key of ['api_key', 'timestamp', 'folder', 'type', 'signature'] as const) {
+    body.append(key, String(signature[key]));
   }
 
-  const payload = await new Promise<CloudinaryUploadResponse>((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
-    request.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`);
+    request.open('POST', `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`);
     request.timeout = 60_000;
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
     };
     request.onload = () => {
-      const result = (() => {
-        try {
-          return JSON.parse(request.responseText) as CloudinaryUploadResponse;
-        } catch {
-          return {} as CloudinaryUploadResponse;
-        }
-      })();
+      let result: CloudinaryUploadResponse;
+      try { result = JSON.parse(request.responseText) as CloudinaryUploadResponse; }
+      catch { result = {}; }
       if (request.status < 200 || request.status >= 300) {
         reject(new Error(result.error?.message ?? `Cloudinary returned HTTP ${request.status}.`));
         return;
@@ -151,14 +74,49 @@ export async function uploadImageToCloudinary(
       resolve(result);
     };
     request.onerror = () => reject(new Error('Could not reach Cloudinary. Check your connection and try again.'));
-    request.ontimeout = () => reject(new Error('Cloudinary upload timed out after 60 seconds. Check your connection and try again.'));
+    request.ontimeout = () => reject(new Error('Cloudinary upload timed out after 60 seconds.'));
     request.onabort = () => reject(new Error('Cloudinary upload was cancelled. Please retry.'));
     request.send(body);
   });
+}
 
-  if (!payload.secure_url || !payload.public_id) {
-    throw new Error(payload.error?.message ?? 'Cloudinary did not return the uploaded image URL. Please retry.');
+function validateImage(file: File) {
+  if (!IMAGE_TYPES.includes(file.type) || file.size <= 0 || file.size > MAX_IMAGE_SIZE) {
+    throw new Error('Choose a JPG, PNG, or WebP image up to 5 MB.');
   }
+}
 
-  return { url: payload.secure_url, publicId: payload.public_id };
+async function uploadImage(file: File, purpose: 'charger' | 'verification', onProgress?: (progress: number) => void): Promise<CloudinaryImage> {
+  validateImage(file);
+  const user = auth.currentUser;
+  if (!user) throw new Error('Sign in before uploading images.');
+  const signature = await getUploadSignature(purpose, await user.getIdToken());
+  const payload = await sendSignedImage(file, signature, onProgress);
+  if (!payload.public_id || !payload.version || !payload.format || (purpose === 'charger' && !payload.secure_url)) {
+    throw new Error(payload.error?.message ?? 'Cloudinary did not return the uploaded image details.');
+  }
+  return {
+    url: purpose === 'charger' ? payload.secure_url ?? '' : '',
+    publicId: payload.public_id,
+    version: payload.version,
+    format: payload.format,
+  };
+}
+
+/** Uploads a public provider charger photo using a server-issued signature. */
+export async function uploadImageToCloudinary(
+  file: File,
+  providerId: string,
+  onProgress?: (progress: number) => void,
+): Promise<CloudinaryImage> {
+  if (auth.currentUser?.uid !== providerId) throw new Error('You can only upload images for your signed-in provider account.');
+  return uploadImage(file, 'charger', onProgress);
+}
+
+/** Uploads a private provider verification image using the same Cloudinary uploader. */
+export async function uploadVerificationImageToCloudinary(
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<CloudinaryImage> {
+  return uploadImage(file, 'verification', onProgress);
 }

@@ -12,7 +12,15 @@ service cloud.firestore {
     // Provider profile and chargers
     match /providers/{providerId} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == providerId);
-      allow write: if request.auth != null && request.auth.uid == providerId;
+      allow create: if request.auth != null
+        && request.auth.uid == providerId
+        && request.resource.data.applicationStatus == 'under_review';
+      allow update: if request.auth != null
+        && request.auth.uid == providerId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'applicationStatus', 'applicationReviewedAt', 'applicationReviewedBy'
+        ]);
+      allow delete: if request.auth != null && request.auth.uid == providerId;
       match /chargers/{document=**} {
         allow read: if isAdmin() || (request.auth != null && request.auth.uid == providerId);
         allow write: if request.auth != null && request.auth.uid == providerId;

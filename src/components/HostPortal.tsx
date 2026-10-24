@@ -51,6 +51,7 @@ import {
 import {
   acceptBooking,
   cancelBooking,
+  completeBooking,
   hashArrivalCode,
   rejectBooking,
   startChargingSession,
@@ -719,7 +720,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => cancelBooking(liveSession.id)}
+                      onClick={() => void completeBooking(liveSession.id).catch((error) => console.error('Could not complete charging session:', error))}
                       className="h-10 px-3 bg-white hover:bg-red-50 border border-red-600 text-red-600 rounded font-sans text-xs uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Power size={14} />

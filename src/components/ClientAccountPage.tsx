@@ -35,6 +35,14 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
 }
 
+function formatChargingDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return `${hours}h ${minutes}m ${remainder}s`;
+}
+
 export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
   section,
   user,
@@ -101,10 +109,22 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#E5E5E5] pt-3 text-xs sm:grid-cols-4">
                   <div><span className="block text-[#777]">Session</span><span className="mt-0.5 block font-semibold">{formatDate(booking.startTime)}</span></div>
-                  <div><span className="block text-[#777]">Energy</span><span className="mt-0.5 block font-semibold">{booking.totalKwh ?? 0} kWh</span></div>
-                  <div><span className="block text-[#777]">Total</span><span className="mt-0.5 block font-semibold">₹{booking.totalPrice}</span></div>
+                  <div><span className="block text-[#777]">{booking.status === 'completed' ? 'Energy delivered' : 'Requested energy'}</span><span className="mt-0.5 block font-semibold">{(booking.totalKwh ?? 0).toFixed(2)} kWh</span></div>
+                  <div><span className="block text-[#777]">{booking.status === 'completed' ? 'Final bill' : 'Estimated total'}</span><span className="mt-0.5 block font-semibold">₹{booking.totalPrice.toFixed(2)}</span></div>
                   <div><span className="block text-[#777]">Requested</span><span className="mt-0.5 block font-semibold">{formatDate(booking.createdAt)}</span></div>
                 </div>
+                {booking.status === 'completed' && booking.sessionDurationSeconds !== undefined && (
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950">
+                    <p className="font-semibold">Charging complete · Final bill ₹{booking.totalPrice.toFixed(2)}</p>
+                    <p className="mt-1">Charging time: {formatChargingDuration(booking.sessionDurationSeconds)} · Estimated energy: {(booking.totalKwh ?? 0).toFixed(2)} kWh</p>
+                    {booking.pricingType === 'per_kwh' && booking.pricePerKwh !== undefined && (
+                      <p className="mt-1">Calculated from charging time × {booking.chargerPowerKw ?? 0} kW × ₹{booking.pricePerKwh}/kWh.</p>
+                    )}
+                    {booking.pricingType === 'per_session' && (
+                      <p className="mt-1">Session rate prorated by charging time against the booked session window.</p>
+                    )}
+                  </div>
+                )}
                 {booking.status === 'accepted' && <ClientLocationSharing booking={booking} clientGatePin={clientGatePin} />}
                 {['pending', 'accepted'].includes(booking.status) && (
                   <div className="mt-4 flex justify-end border-t border-[#E5E5E5] pt-3">

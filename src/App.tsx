@@ -14,7 +14,7 @@ import { HeroScene } from './components/HeroScene';
 import { ChapterConnectSection, ChapterBookAndChargeSection } from './components/StoryChapters';
 import { SafetyAndFeatureShowcase } from './components/SafetyAndFeatureShowcase';
 import { IndiaMobilityAndConversion } from './components/IndiaMobilityAndConversion';
-import { HostPortal } from './components/HostPortal';
+import { ProviderRoute } from './components/ProviderRoute';
 import { AuthPage } from './components/AuthPage';
 import {
   SignInAndBookingsModal,
@@ -327,7 +327,7 @@ export default function App() {
   if (route === 'provider') {
     if (!authResolved) return <SessionLoading label="Checking your session…" />;
     return effectiveUser ? (
-      <HostPortal user={effectiveUser} />
+      <ProviderRoute user={effectiveUser} />
     ) : (
       <AuthPage redirectTo={ROUTES.provider} />
     );
@@ -475,6 +475,9 @@ export default function App() {
             endTime: request.endTime,
             totalKwh: request.totalKwh,
             totalPrice,
+            chargerPowerKw: charger.powerKw,
+            pricePerKwh: charger.pricePerKwh,
+            pricingType: charger.pricingType ?? 'per_kwh',
           });
         }}
       />

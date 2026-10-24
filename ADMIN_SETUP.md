@@ -32,6 +32,10 @@ The Firebase web API key and `ADMIN_USERS` alone cannot provide privileged backe
 
 Add `APILAYER_POSITIONSTACK_ACCESS_KEY` to `.env` to use APILayer Positionstack for address search and charger pin reverse geocoding. Keep the key server-only (no `VITE_` prefix). The provider form stores the confirmed latitude/longitude with the charger and uses reverse geocoding to fill its address, locality, and city. If the key is empty, reverse lookup falls back to OpenStreetMap Nominatim and area search uses its existing geocoder fallback. Positionstack authenticates with an `access_key` query parameter; the server keeps that key out of browser requests. See [Positionstack setup](https://docs.apilayer.com/positionstack/docs/getting-started).
 
+## Provider application documents
+
+Set `CLOUDINARY_URL` in `.env` using `cloudinary://<api_key>:<api_secret>@<cloud_name>`. Keep it server-only without a `VITE_` prefix. The Node backend verifies the Firebase sign-in token and signs Cloudinary uploads. Charger photos use normal public delivery; electricity bills and ownership documents use Cloudinary's authenticated delivery and are streamed to the admin review page only after an admin session is checked. Provider applications are saved with `under_review`; only the admin backend can accept or decline them.
+
 ## Run
 
 ```powershell

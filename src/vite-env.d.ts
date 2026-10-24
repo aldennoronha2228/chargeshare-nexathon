@@ -10,11 +10,6 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
   readonly VITE_MAP_TILES_API_KEY?: string;
   readonly VITE_GEOCODER_URL?: string;
-  readonly VITE_CLOUDINARY_URL?: string;
-  readonly VITE_CLOUDINARY_CLOUD_NAME?: string;
-  readonly VITE_CLOUDINARY_API_KEY?: string;
-  readonly VITE_CLOUDINARY_API_SECRET?: string;
-  readonly VITE_CLOUDINARY_UPLOAD_PRESET?: string;
 }
 
 interface ImportMeta {
