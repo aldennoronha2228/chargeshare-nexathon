@@ -232,8 +232,39 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
     setLocationMessage('Looking up the pinned address…');
     try {
       const query = new URLSearchParams({ lat: String(position.lat), lng: String(position.lng) });
-      const response = await fetch(`/api/geocoding/reverse?${query.toString()}`);
-      const result = await response.json() as { label?: string; locality?: string; city?: string; error?: string };
+      let response = await fetch(`/api/geocoding/reverse?${query.toString()}`);
+      let result: { label?: string; locality?: string; city?: string; error?: string };
+
+      // The Vite middleware serves this route in development. Static hosting can
+      // instead return the app's index.html, so detect that and use Nominatim.
+      try {
+        result = await response.json() as typeof result;
+      } catch {
+        const upstreamQuery = new URLSearchParams({
+          format: 'jsonv2',
+          addressdetails: '1',
+          zoom: '18',
+          lat: String(position.lat),
+          lon: String(position.lng),
+        });
+        response = await fetch(`https://nominatim.openstreetmap.org/reverse?${upstreamQuery.toString()}`, {
+          headers: { 'Accept-Language': 'en' },
+        });
+        const upstream = await response.json() as {
+          display_name?: string;
+          address?: Record<string, string | undefined>;
+          error?: string;
+        };
+        const address = upstream.address ?? {};
+        result = {
+          label: upstream.display_name,
+          locality: address.neighbourhood ?? address.suburb ?? address.quarter
+            ?? address.city_district ?? address.village ?? address.hamlet ?? address.road ?? '',
+          city: address.city ?? address.town ?? address.municipality ?? address.county
+            ?? address.state_district ?? address.village ?? '',
+          error: upstream.error,
+        };
+      }
       if (!response.ok || !result.label) {
         throw new Error(result.error || 'No address was found for this pin.');
       }
@@ -245,7 +276,12 @@ export const AddChargerForm: React.FC<AddChargerFormProps> = ({
       return result.label;
     } catch (error) {
       if (requestId !== geocodeRequestRef.current) return null;
-      setLocationMessage(error instanceof Error ? error.message : 'Could not find an address for this pin. You can enter it manually.');
+      const message = error instanceof SyntaxError
+        ? 'The address service returned an invalid response. Please try again or enter the address manually.'
+        : error instanceof Error
+          ? error.message
+          : 'Could not find an address for this pin. You can enter it manually.';
+      setLocationMessage(message);
       return null;
     }
   }, []);
