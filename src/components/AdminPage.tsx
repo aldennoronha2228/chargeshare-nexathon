@@ -17,8 +17,9 @@ type AccessState = 'checking' | 'signed-out' | 'admin';
 
 async function readError(response: Response, fallback: string): Promise<string> {
   try {
-    const payload = await response.json() as { error?: string };
-    return payload.error || fallback;
+    const payload = await response.json() as { error?: string; diagnosticCode?: string };
+    const message = payload.error || fallback;
+    return payload.diagnosticCode ? `${message} (code: ${payload.diagnosticCode})` : message;
   } catch {
     return fallback;
   }
