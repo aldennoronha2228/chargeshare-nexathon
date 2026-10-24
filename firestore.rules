@@ -79,14 +79,36 @@ service cloud.firestore {
           && resource.data.get('sessionStartedAt', null) == null
           && request.resource.data.sessionStartedAt is number
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sessionStartedAt']))
+        || (resource.data.userId == request.auth.uid
+          && resource.data.status == 'completed'
+          && resource.data.get('reviewSubmitted', false) != true
+          && request.resource.data.reviewSubmitted == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewSubmitted']))
       );
     }
 
-    // Reviews: readable and writable by participating providers and drivers
+    // Reviews: public to read, submitted by the driver for a completed booking,
+    // and answerable by the provider who owns that booking.
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+        && reviewId == request.resource.data.bookingId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 1000
+        && exists(/databases/$(database)/documents/bookings/$(reviewId))
+        && get(/databases/$(database)/documents/bookings/$(reviewId)).data.userId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(reviewId)).data.status == 'completed'
+        && get(/databases/$(database)/documents/bookings/$(reviewId)).data.chargerId == request.resource.data.chargerId
+        && get(/databases/$(database)/documents/bookings/$(reviewId)).data.providerId == request.resource.data.providerId;
+      allow update: if request.auth != null
+        && resource.data.providerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response'])
+        && request.resource.data.response is string
+        && request.resource.data.response.size() <= 1000;
     }
 
     // Public chargers read access for driver exploration

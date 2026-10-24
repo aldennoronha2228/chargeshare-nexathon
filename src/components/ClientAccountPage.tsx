@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { Activity, CalendarCheck, ChevronLeft, Compass, UserRound } from 'lucide-react';
+import { Activity, CalendarCheck, ChevronLeft, Compass, Star, UserRound, X } from 'lucide-react';
 import type { Booking } from '../utils/bookings';
 import { markClientReached, updateBookingClientLocation } from '../utils/bookings';
 import { BookingLiveLocationMap } from './BookingLiveLocationMap';
 import { ChargingSessionTimer } from './ChargingSessionTimer';
 import { getGatePin } from '../utils/userProfile';
 import { ROUTES, navigateTo } from '../utils/appRoute';
+import { submitBookingReview } from '../utils/reviews';
 
 export type ClientAccountSection = 'bookings' | 'activity' | 'profile';
 
@@ -198,8 +199,75 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
   );
 };
 
+export const BookingReviewPrompt: React.FC<{
+  booking: Booking;
+  user: User;
+  onDismiss: () => void;
+}> = ({ booking, user, onDismiss }) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    if (!rating || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await submitBookingReview({
+        bookingId: booking.id,
+        chargerId: booking.chargerId,
+        providerId: booking.providerId,
+        userId: user.uid,
+        userName: user.displayName?.trim() || user.email?.split('@')[0] || booking.userName || 'ChargeShare driver',
+        ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
+        rating,
+        comment,
+      });
+      onDismiss();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Could not save your review. Please try again.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="booking-review-title" className="w-full max-w-md rounded-2xl border border-[#D5D5D5] bg-white p-5 shadow-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777]">Charging complete</p>
+            <h2 id="booking-review-title" className="mt-1 text-lg font-bold">How was your experience?</h2>
+            <p className="mt-1 text-xs text-[#666]">Rate {booking.chargerTitle || 'this charging station'} for your next visit and other drivers.</p>
+          </div>
+          <button type="button" onClick={onDismiss} aria-label="Close review prompt" className="rounded-lg p-2 text-[#666] hover:bg-[#F2F2F2]"><X size={18} /></button>
+        </div>
+        <div className="mt-5 flex justify-center gap-2" role="radiogroup" aria-label="Rate your experience from one to five stars">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button key={value} type="button" role="radio" aria-checked={rating === value} aria-label={`${value} ${value === 1 ? 'star' : 'stars'}`} onClick={() => setRating(value)} className="rounded-lg p-1 text-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400">
+              <Star size={34} className={value <= rating ? 'fill-amber-400' : 'fill-transparent text-[#BDBDBD]'} />
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-center text-xs font-semibold text-[#555]">{rating ? `${rating} out of 5 stars` : 'Choose a star rating'}</p>
+        <label className="mt-5 block text-xs font-semibold text-[#333]">
+          Your experience <span className="font-normal text-[#777]">(optional)</span>
+          <textarea value={comment} onChange={(event) => setComment(event.target.value.slice(0, 1000))} rows={3} maxLength={1000} placeholder="What should other drivers know?" className="mt-1.5 w-full resize-y rounded-lg border border-[#D5D5D5] px-3 py-2 text-sm font-normal outline-none focus:border-black" />
+        </label>
+        {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">{error}</p>}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button type="button" onClick={onDismiss} className="min-h-10 px-3 text-xs font-semibold text-[#666] hover:text-black">Maybe later</button>
+          <button type="button" onClick={() => void submit()} disabled={!rating || saving} className="min-h-10 rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-[#292929] disabled:cursor-not-allowed disabled:opacity-40">{saving ? 'Saving review…' : 'Submit review'}</button>
+        </div>
+      </section>
+    </div>
+  );
+};
+
 const ClientLocationSharing: React.FC<{ booking: Booking; clientGatePin: string }> = ({ booking, clientGatePin }) => {
   const [sharing, setSharing] = useState(false);
+  const [viewerLocation, setViewerLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState('');
   const [markingReached, setMarkingReached] = useState(false);
   const [arrivalError, setArrivalError] = useState('');
@@ -234,6 +302,7 @@ const ClientLocationSharing: React.FC<{ booking: Booking; clientGatePin: string 
     setMessage('Waiting for location permission…');
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
+        setViewerLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
         const now = Date.now();
         if (now - lastWriteRef.current < 8000) return;
         lastWriteRef.current = now;
@@ -256,6 +325,29 @@ const ClientLocationSharing: React.FC<{ booking: Booking; clientGatePin: string 
     );
   };
 
+  const locateOnMap = () => {
+    if (!navigator.geolocation) {
+      setMessage('This browser does not support location access.');
+      return;
+    }
+    setLocating(true);
+    setMessage('Finding your location for this map…');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setViewerLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocating(false);
+        setMessage('Your location is shown on this map only. Use Share location to make it visible to the provider.');
+      },
+      (error) => {
+        setLocating(false);
+        setMessage(error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Allow it in your browser settings and try again.'
+          : 'Could not get your location. Check device location settings and try again.');
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+  };
+
   const handleReached = async () => {
     if (markingReached || booking.clientReached) return;
     setMarkingReached(true);
@@ -271,7 +363,10 @@ const ClientLocationSharing: React.FC<{ booking: Booking; clientGatePin: string 
 
   return (
     <div className="mt-4 space-y-3 border-t border-[#E5E5E5] pt-3">
-      <BookingLiveLocationMap location={booking.clientLocation} updatedAt={booking.clientLocationUpdatedAt} />
+      <BookingLiveLocationMap chargerId={booking.chargerId} chargerLocation={booking.chargerLocation} location={booking.clientLocation} viewerLocation={viewerLocation} updatedAt={booking.clientLocationUpdatedAt} />
+      <button type="button" onClick={locateOnMap} disabled={locating} className="min-h-9 rounded-lg border border-[#B8B8B8] px-3 py-2 text-xs font-semibold text-[#333] hover:border-black hover:text-black disabled:opacity-60">
+        {locating ? 'Finding you…' : viewerLocation ? 'Refresh my map location' : 'Show my location'}
+      </button>
       <div className="rounded-lg border border-[#D5D5D5] bg-[#F8F8F8] p-3">
         {booking.clientReached ? (
           <>

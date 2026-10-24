@@ -26,6 +26,7 @@ export interface Booking {
   chargerId: string;
   chargerTitle?: string;
   chargerLocality?: string;
+  chargerLocation?: ClientLocation | null;
   providerId: string;
   userId: string;
   userName: string;
@@ -44,6 +45,7 @@ export interface Booking {
   clientLocationUpdatedAt?: number;
   clientReached?: boolean;
   clientReachedAt?: number;
+  reviewSubmitted?: boolean;
   arrivalCodeHash?: string;
   sessionStartedAt?: number;
   sessionEndedAt?: number;
@@ -93,8 +95,19 @@ export async function createBookingRequest(input: NewBookingRequest): Promise<st
   const platformFee = input.totalPrice * 0.1;
   const arrivalCodeHash = await hashArrivalCode(getGatePin(input.userId));
   const { userPhoto, ...booking } = input;
+  const listingData = listing.data();
+  const rawLocation = listingData?.coordinates;
+  const lat = Number(rawLocation?.lat);
+  const lng = Number(rawLocation?.lng);
+  const chargerLocation = rawLocation
+    && listingData?.locationConfirmed === true
+    && Number.isFinite(lat) && Math.abs(lat) <= 90
+    && Number.isFinite(lng) && Math.abs(lng) <= 180
+    ? { lat, lng }
+    : null;
   const reference = await addDoc(collection(db, 'bookings'), {
     ...booking,
+    chargerLocation,
     arrivalCodeHash,
     ...(userPhoto ? { userPhoto } : {}),
     status: 'pending',
@@ -112,6 +125,7 @@ function toBooking(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
     chargerId: data.chargerId,
     chargerTitle: data.chargerTitle,
     chargerLocality: data.chargerLocality,
+    chargerLocation: data.chargerLocation ?? null,
     providerId: data.providerId,
     userId: data.userId,
     userName: data.userName,
@@ -130,6 +144,7 @@ function toBooking(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
     clientLocationUpdatedAt: data.clientLocationUpdatedAt,
     clientReached: data.clientReached === true,
     clientReachedAt: data.clientReachedAt,
+    reviewSubmitted: data.reviewSubmitted === true,
     arrivalCodeHash: data.arrivalCodeHash,
     sessionStartedAt: data.sessionStartedAt,
     sessionEndedAt: data.sessionEndedAt,

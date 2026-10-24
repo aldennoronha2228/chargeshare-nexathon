@@ -5,6 +5,7 @@ import {
   orderBy,
   query,
   setDoc,
+  writeBatch,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -14,6 +15,7 @@ import { db } from '../firebase';
 
 export interface Review {
   id: string;
+  bookingId?: string;
   chargerId: string;
   providerId: string;
   userId: string;
@@ -29,6 +31,7 @@ function toReview(snapshot: QueryDocumentSnapshot<DocumentData>): Review {
   const data = snapshot.data();
   return {
     id: snapshot.id,
+    bookingId: data.bookingId,
     chargerId: data.chargerId,
     providerId: data.providerId,
     userId: data.userId,
@@ -39,6 +42,37 @@ function toReview(snapshot: QueryDocumentSnapshot<DocumentData>): Review {
     response: data.response,
     createdAt: data.createdAt,
   };
+}
+
+/** Saves one public charger review for a completed booking. */
+export async function submitBookingReview(input: {
+  bookingId: string;
+  chargerId: string;
+  providerId: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  rating: number;
+  comment: string;
+}): Promise<void> {
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new Error('Choose a rating from 1 to 5 stars.');
+  }
+  const comment = input.comment.trim().slice(0, 1000);
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'reviews', input.bookingId), {
+    bookingId: input.bookingId,
+    chargerId: input.chargerId,
+    providerId: input.providerId,
+    userId: input.userId,
+    userName: input.userName,
+    ...(input.userPhoto ? { userPhoto: input.userPhoto } : {}),
+    rating: input.rating,
+    comment,
+    createdAt: new Date().toISOString(),
+  });
+  batch.set(doc(db, 'bookings', input.bookingId), { reviewSubmitted: true }, { merge: true });
+  await batch.commit();
 }
 
 /** Streams all reviews for a provider's chargers. */

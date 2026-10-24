@@ -39,7 +39,7 @@ import type { ProfileMenuView } from './components/ProfileMenu';
 import { subscribeToPublicChargers, toClientListing } from './utils/providerChargers';
 import { subscribeToPublicReviews, type Review } from './utils/reviews';
 import { syncUserProfile } from './utils/userProfile';
-import { ClientAccountPage, type ClientAccountSection } from './components/ClientAccountPage';
+import { BookingReviewPrompt, ClientAccountPage, type ClientAccountSection } from './components/ClientAccountPage';
 import { AdminPage } from './components/AdminPage';
 
 const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
@@ -78,6 +78,7 @@ export default function App() {
   const [chargersError, setChargersError] = useState('');
   const [selectedChargerIndex, setSelectedChargerIndex] = useState<number>(0);
   const [driverBookings, setDriverBookings] = useState<Booking[]>([]);
+  const [dismissedReviewIds, setDismissedReviewIds] = useState<Set<string>>(() => new Set());
   const [publicReviews, setPublicReviews] = useState<Review[]>([]);
 
   // 3D Stage & Narrative Chapter State
@@ -148,6 +149,11 @@ export default function App() {
    * freshly signed-in user from being bounced back to the login screen.
    */
   const effectiveUser = user ?? auth.currentUser;
+  const reviewPromptBooking = effectiveUser
+    ? driverBookings.find((booking) => booking.status === 'completed'
+      && !booking.reviewSubmitted
+      && !dismissedReviewIds.has(booking.id))
+    : undefined;
 
   useEffect(() => {
     if (!effectiveUser) {
@@ -203,6 +209,7 @@ export default function App() {
   useEffect(() => {
     if (user) return;
     setDriverBookings([]);
+    setDismissedReviewIds(new Set());
     setSignInModalOpen(false);
     setEditProfileOpen(false);
     setDetailCharger(null);
@@ -455,6 +462,7 @@ export default function App() {
 
       <ChargerDetailDrawer
         charger={detailCharger}
+        reviews={detailCharger ? publicReviews.filter((review) => review.chargerId === detailCharger.id) : []}
         onClose={() => setDetailCharger(null)}
         onBook={async (charger, request) => {
           if (!effectiveUser || !charger.providerId) throw new Error('Sign in and choose an active provider listing to book.');
@@ -481,6 +489,15 @@ export default function App() {
           });
         }}
       />
+
+      {reviewPromptBooking && effectiveUser && (
+        <BookingReviewPrompt
+          key={reviewPromptBooking.id}
+          booking={reviewPromptBooking}
+          user={effectiveUser}
+          onDismiss={() => setDismissedReviewIds((current) => new Set(current).add(reviewPromptBooking.id))}
+        />
+      )}
     </div>
   );
 }

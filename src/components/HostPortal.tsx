@@ -1143,7 +1143,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                       ) : (
                         <p role="status" className="rounded-lg bg-[#F5F3F1] px-3 py-2 text-xs font-semibold text-[#636563]">Waiting for the client to confirm arrival.</p>
                       )}
-                      <BookingLiveLocationMap location={booking.clientLocation} updatedAt={booking.clientLocationUpdatedAt} />
+                      <BookingLiveLocationMap chargerId={booking.chargerId} chargerLocation={booking.chargerLocation} location={booking.clientLocation} updatedAt={booking.clientLocationUpdatedAt} />
                       <button
                         onClick={() => cancelBooking(booking.id)}
                         className="w-full py-2 rounded border border-[#E8E6E5] hover:bg-[#F5F3F1] text-xs font-bold uppercase tracking-wider text-black"

@@ -18,16 +18,19 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { ChargerListing } from '../data/demoChargers';
+import type { Review } from '../utils/reviews';
 import { ChargerThumbPlate } from './EditorialIllustrations';
 
 interface ChargerDetailDrawerProps {
   charger: ChargerListing | null;
+  reviews: Review[];
   onClose: () => void;
   onBook: (charger: ChargerListing, request: { vehicleName: string; vehicleNumber: string; totalKwh: number; startTime: string; endTime: string }) => Promise<void>;
 }
 
 export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
   charger,
+  reviews,
   onClose,
   onBook,
 }) => {
@@ -215,6 +218,30 @@ export const ChargerDetailDrawer: React.FC<ChargerDetailDrawerProps> = ({
                 </div>
               </div>
               <p className="text-[#666] text-[11px]">{charger.reviewCount ? `${charger.reviewCount} reviews` : 'No reviews yet'}</p>
+            </div>
+
+            {/* Recent driver reviews */}
+            <div className="space-y-3 rounded-xl border border-[#D5D5D5] bg-white p-3.5 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold text-[#111]">Driver experiences</div>
+                <span className="text-[11px] text-[#777]">{reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</span>
+              </div>
+              {reviews.length ? [...reviews]
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .slice(0, 3)
+                .map((review) => {
+                  const rating = Math.max(0, Math.min(5, Math.round(review.rating)));
+                  return (
+                    <article key={review.id} className="border-t border-[#E8E8E8] pt-2.5 first:border-0 first:pt-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-semibold text-[#222]">{review.userName || 'ChargeShare driver'}</p>
+                        <span className="shrink-0 font-semibold text-amber-600">{'★'.repeat(rating)}{'☆'.repeat(5 - rating)} <span className="text-[#555]">{rating}/5</span></span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-[#555]">{review.comment || 'No written comment.'}</p>
+                      {review.response && <p className="mt-2 rounded-md bg-[#F5F5F5] p-2 text-[#555]"><span className="font-semibold text-[#222]">Provider response: </span>{review.response}</p>}
+                    </article>
+                  );
+                }) : <p className="text-[11px] text-[#777]">No driver experiences yet. Book and charge here to be the first to leave a review.</p>}
             </div>
 
             {/* Operating hours + access */}
