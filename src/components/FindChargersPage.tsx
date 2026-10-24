@@ -70,6 +70,32 @@ const CITIES: IndianCity[] = [
   'Chennai',
 ];
 
+const CLIENT_LOCATION_SESSION_KEY = 'chargeshare.clientLocation.v1';
+
+function readSessionLocation(): SelectedLocation | null {
+  try {
+    const saved = sessionStorage.getItem(CLIENT_LOCATION_SESSION_KEY);
+    if (!saved) return null;
+    const value = JSON.parse(saved) as Partial<SelectedLocation>;
+    if (typeof value.countryCode !== 'string' || typeof value.country !== 'string'
+      || typeof value.state !== 'string' || typeof value.city !== 'string'
+      || typeof value.area !== 'string' || !value.city.trim()
+      || typeof value.latitude !== 'number' || !Number.isFinite(value.latitude)
+      || typeof value.longitude !== 'number' || !Number.isFinite(value.longitude)
+      || value.latitude < -90 || value.latitude > 90
+      || value.longitude < -180 || value.longitude > 180) return null;
+    return value as SelectedLocation;
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionLocation(location: SelectedLocation): void {
+  try {
+    sessionStorage.setItem(CLIENT_LOCATION_SESSION_KEY, JSON.stringify(location));
+  } catch { /* Location still works for this page even if session storage is unavailable. */ }
+}
+
 const CONNECTORS: Array<ConnectorType | 'All Connectors'> = [
   'All Connectors',
   'Type 2 AC',
@@ -616,7 +642,11 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   onOpenActivity,
   activeReservationCount,
 }) => {
-  const [filters, setFilters] = useState<ChargerFilterCriteria>(DEFAULT_FILTERS);
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(() => readSessionLocation());
+  const [filters, setFilters] = useState<ChargerFilterCriteria>(() => ({
+    ...DEFAULT_FILTERS,
+    searchQuery: selectedLocation?.area || selectedLocation?.city || '',
+  }));
   const [sortBy, setSortBy] = useState<SortKey>('distance');
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -624,9 +654,12 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
   const [showAll, setShowAll] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationDialogOpen, setLocationDialogOpen] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [focusLocation, setFocusLocation] = useState<{ lat: number; lng: number; zoom: number }>();
+  const [locationDialogOpen, setLocationDialogOpen] = useState(() => !selectedLocation);
+  const [focusLocation, setFocusLocation] = useState<{ lat: number; lng: number; zoom: number } | undefined>(() => selectedLocation ? ({
+    lat: selectedLocation.latitude,
+    lng: selectedLocation.longitude,
+    zoom: selectedLocation.area.trim() ? 15.5 : 13.5,
+  }) : undefined);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const mapSectionRef = useRef<HTMLElement>(null);
@@ -711,6 +744,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
   const handleLocationSubmit = useCallback(async (location: SelectedLocation) => {
     setSelectedLocation(location);
+    saveSessionLocation(location);
     // The chooser resolves an area/neighbourhood point, so bring it into a
     // street-level view instead of leaving the map at a broad city zoom.
     setFocusLocation({
