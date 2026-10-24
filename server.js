@@ -306,20 +306,36 @@ app.post('/api/admin/google-session', async (request, response) => {
   if (!withinLoginLimit(request)) return response.status(429).json({ error: 'Too many sign-in attempts. Wait 15 minutes and try again.' });
   const idToken = typeof request.body?.idToken === 'string' ? request.body.idToken : '';
   if (!idToken) return response.status(400).json({ error: 'Google sign-in token is missing.' });
+  let decoded;
   try {
-    const decoded = await getAuth(getFirebaseAdminApp()).verifyIdToken(idToken);
-    const email = decoded.email?.trim().toLowerCase();
-    const adminRecord = email ? await getAdminRecord(email) : null;
-    if (!email || decoded.email_verified !== true || !adminRecord?.active) {
-      return response.status(403).json({ error: 'This Google account is not on the admin allowlist.' });
-    }
+    decoded = await getAuth(getFirebaseAdminApp()).verifyIdToken(idToken);
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+    console.error('[admin] Google ID token verification failed:', error instanceof Error ? error.message : 'Unknown Firebase Auth error.');
+    const invalidToken = ['auth/argument-error', 'auth/id-token-expired', 'auth/id-token-revoked', 'auth/invalid-id-token', 'auth/user-disabled', 'auth/user-not-found'].includes(code);
+    return response.status(invalidToken ? 401 : 503).json({
+      error: invalidToken
+        ? 'Google sign-in expired or could not be validated. Try signing in again.'
+        : 'The admin server could not verify the Google token. Check its Firebase Admin credentials and project configuration; see the server log for details.',
+    });
+  }
+  const email = decoded.email?.trim().toLowerCase();
+  let adminRecord;
+  try {
+    adminRecord = email ? await getAdminRecord(email) : null;
+  } catch (error) {
+    console.error('[admin] Google admin allowlist lookup failed:', error instanceof Error ? error.message : 'Unknown Firestore error.');
+    return response.status(503).json({ error: 'The admin server verified your Google account but could not read its admin allowlist record. Check Firebase Admin Firestore access and the server log.' });
+  }
+  if (!email || decoded.email_verified !== true || !adminRecord?.active) {
+    return response.status(403).json({ error: 'This Google account is not on the admin allowlist.' });
+  }
+  try {
     setSessionCookie(response, email);
     response.json({ authenticated: true, email });
   } catch (error) {
-    console.error('[admin] Google sign-in verification failed:', error instanceof Error ? error.message : 'Unknown Firebase Admin error.');
-    response.status(503).json({
-      error: 'The admin server could not verify Google sign-in. Check that GOOGLE_APPLICATION_CREDENTIALS points to an existing Firebase service-account file, or set FIREBASE_SERVICE_ACCOUNT_JSON, and confirm it belongs to the same Firebase project as the web app.',
-    });
+    console.error('[admin] Admin session creation failed:', error instanceof Error ? error.message : 'Unknown session error.');
+    return response.status(503).json({ error: 'Google sign-in was verified, but the admin session could not be created. Check ADMIN_SESSION_SECRET on the server.' });
   }
 });
 
