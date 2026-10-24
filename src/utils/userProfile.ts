@@ -2,6 +2,11 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { db } from '../firebase';
 
+/** Fixed account PIN used for gate access and client arrival confirmation. */
+export function getGatePin(uid: string): string {
+  return `#${uid.slice(0, 4).toUpperCase()}`;
+}
+
 /** Keeps a readable user profile alongside the UID used as the secure document key. */
 export async function syncUserProfile(user: User): Promise<void> {
   const reference = doc(db, 'users', user.uid);
