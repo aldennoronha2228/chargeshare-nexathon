@@ -56,6 +56,7 @@ import { ChargerThumbPlate } from './EditorialIllustrations';
 import { ChargerMap } from './ChargerMap';
 import { ProfileMenu, type ProfileMenuView } from './ProfileMenu';
 import { LocationSelectionModal, type SelectedLocation } from './LocationSelectionModal';
+import { getGatePin } from '../utils/userProfile';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -618,6 +619,7 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
 
   const { favouriteIds, toggleFavourite } = useFavourites(user?.uid ?? null);
 
+
   // This route can inherit the landing page's old scroll position on navigation.
   // Start at the top so the client hero/search panel is visible on every entry.
   useEffect(() => {
@@ -882,6 +884,15 @@ export const FindChargersPage: React.FC<FindChargersPageProps> = ({
       {locationDialogOpen && <LocationSelectionModal onSubmit={handleLocationSubmit} />}
 
       {/* ── Location search + filter chips ─────────────────────────────────── */}
+      {user && (
+        <div className="mx-auto w-full max-w-[1360px] px-3 pt-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D5D5D5] bg-white px-4 py-2.5 text-black">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#666]">Your fixed client code</span>
+            <span className="font-mono text-sm font-bold tracking-[0.16em]">{getGatePin(user.uid)}</span>
+          </div>
+        </div>
+      )}
+
       <section className="find-chargers-hero mx-auto max-w-[1360px] px-3 pt-4 sm:px-6" aria-label="Search and filters">
         <div className="find-chargers-hero__heading flex items-start justify-between gap-3">
           <div className="min-w-0">

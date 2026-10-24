@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { Activity, CalendarCheck, ChevronLeft, Compass, UserRound } from 'lucide-react';
 import type { Booking } from '../utils/bookings';
+import { markClientReached, updateBookingClientLocation } from '../utils/bookings';
+import { BookingLiveLocationMap } from './BookingLiveLocationMap';
+import { ChargingSessionTimer } from './ChargingSessionTimer';
+import { getGatePin } from '../utils/userProfile';
 import { ROUTES, navigateTo } from '../utils/appRoute';
 
 export type ClientAccountSection = 'bookings' | 'activity' | 'profile';
@@ -40,6 +44,7 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
 }) => {
   const info = SECTION_INFO[section];
   const displayName = user.displayName?.trim() || user.email?.split('@')[0] || 'ChargeShare driver';
+  const clientGatePin = getGatePin(user.uid);
   const orderedBookings = [...bookings].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return (
@@ -71,6 +76,10 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
           <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">{info.title}</h1>
           <p className="mt-1 text-sm text-[#666]">{info.description}</p>
         </div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D5D5D5] bg-white px-4 py-3">
+          <span className="text-xs font-semibold text-[#555]">Your fixed client code</span>
+          <span className="font-mono text-base font-bold tracking-[0.16em]">{clientGatePin}</span>
+        </div>
 
         {section === 'bookings' && (
           <section aria-label="Booking requests" className="space-y-3">
@@ -96,6 +105,7 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
                   <div><span className="block text-[#777]">Total</span><span className="mt-0.5 block font-semibold">₹{booking.totalPrice}</span></div>
                   <div><span className="block text-[#777]">Requested</span><span className="mt-0.5 block font-semibold">{formatDate(booking.createdAt)}</span></div>
                 </div>
+                {booking.status === 'accepted' && <ClientLocationSharing booking={booking} clientGatePin={clientGatePin} />}
                 {['pending', 'accepted'].includes(booking.status) && (
                   <div className="mt-4 flex justify-end border-t border-[#E5E5E5] pt-3">
                     <button type="button" onClick={() => onCancelBooking(booking.id)} className="min-h-10 rounded-lg border border-[#B8B8B8] px-3 py-2 text-xs font-semibold text-[#333] hover:border-black hover:text-black">Cancel request</button>
@@ -164,6 +174,118 @@ export const ClientAccountPage: React.FC<ClientAccountPageProps> = ({
         <AccountNavButton section="activity" current={section === 'activity'} onClick={() => navigateTo(ROUTES.clientActivity)} />
         <AccountNavButton section="profile" current={section === 'profile'} onClick={() => navigateTo(ROUTES.clientProfile)} />
       </nav>
+    </div>
+  );
+};
+
+const ClientLocationSharing: React.FC<{ booking: Booking; clientGatePin: string }> = ({ booking, clientGatePin }) => {
+  const [sharing, setSharing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [markingReached, setMarkingReached] = useState(false);
+  const [arrivalError, setArrivalError] = useState('');
+  const watchIdRef = useRef<number | null>(null);
+  const lastWriteRef = useRef(0);
+
+  const stopSharing = async () => {
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+    setSharing(false);
+    try {
+      await updateBookingClientLocation(booking.id, null);
+      setMessage('Location sharing stopped.');
+    } catch {
+      setMessage('Could not stop sharing. Check your connection and try again.');
+    }
+  };
+
+  useEffect(() => () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      void updateBookingClientLocation(booking.id, null).catch(() => undefined);
+    }
+  }, [booking.id]);
+
+  const startSharing = () => {
+    if (watchIdRef.current !== null) return;
+    if (!navigator.geolocation) {
+      setMessage('This browser does not support location sharing.');
+      return;
+    }
+    setMessage('Waiting for location permission…');
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const now = Date.now();
+        if (now - lastWriteRef.current < 8000) return;
+        lastWriteRef.current = now;
+        void updateBookingClientLocation(booking.id, {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }).then(() => {
+          setSharing(true);
+          setMessage('Your live location is visible to this charger provider. Keep this page open while sharing.');
+        }).catch(() => setMessage('Could not update your location. Check your connection.'));
+      },
+      (error) => {
+        watchIdRef.current = null;
+        setSharing(false);
+        setMessage(error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Allow it in your browser settings to share.'
+          : 'Could not get your location. Check device location settings and try again.');
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+  };
+
+  const handleReached = async () => {
+    if (markingReached || booking.clientReached) return;
+    setMarkingReached(true);
+    setArrivalError('');
+    try {
+      await markClientReached(booking.id);
+    } catch {
+      setArrivalError('Could not confirm arrival. Check your connection and try again.');
+    } finally {
+      setMarkingReached(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-[#E5E5E5] pt-3">
+      <BookingLiveLocationMap location={booking.clientLocation} updatedAt={booking.clientLocationUpdatedAt} />
+      <div className="rounded-lg border border-[#D5D5D5] bg-[#F8F8F8] p-3">
+        {booking.clientReached ? (
+          <>
+            <p role="status" className="text-xs font-semibold text-[#176B3A]">You’ve confirmed that you reached the provider.</p>
+            {booking.sessionStartedAt ? (
+              <div className="mt-3"><ChargingSessionTimer startedAt={booking.sessionStartedAt} /></div>
+            ) : (
+              <div className="mt-3 rounded-lg border border-[#D5D5D5] bg-white p-3">
+                <p className="text-xs font-semibold">Give this arrival code to the provider</p>
+                <p className="mt-1 font-mono text-2xl font-bold tracking-[0.2em]">{clientGatePin}</p>
+                <p className="mt-1 text-[11px] text-[#666]">The charging timer starts after the provider enters the code.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-[#555]">Once you arrive at the provider, confirm it here.</p>
+            <button type="button" onClick={() => void handleReached()} disabled={markingReached} className="mt-2 min-h-10 rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-[#292929] disabled:cursor-wait disabled:opacity-60">
+              {markingReached ? 'Confirming…' : 'I’ve reached the provider'}
+            </button>
+            {arrivalError && <p role="alert" className="mt-2 text-[11px] text-[#B42318]">{arrivalError}</p>}
+          </>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold">Share your live location</p>
+          <p className="mt-0.5 text-[11px] text-[#666]">Visible to you and this booking’s provider. Sharing stops when you leave this page or stop it.</p>
+        </div>
+        <button type="button" onClick={sharing ? () => void stopSharing() : startSharing} className="min-h-10 rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-[#292929]">
+          {sharing ? 'Stop sharing' : 'Share location'}
+        </button>
+      </div>
+      {message && <p role="status" className="text-[11px] text-[#555]">{message}</p>}
     </div>
   );
 };

@@ -22,10 +22,46 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.providerId != request.auth.uid
+        && request.resource.data.arrivalCodeHash is string
+        && request.resource.data.arrivalCodeHash.size() == 64
         && exists(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId))
         && get(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId)).data.status == 'active'
         && get(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId)).data.providerId == request.resource.data.providerId;
-      allow update: if request.auth != null && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid);
+      allow update: if request.auth != null && (
+        (resource.data.providerId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['clientLocation', 'clientLocationUpdatedAt', 'clientReached', 'clientReachedAt', 'arrivalCodeHash', 'sessionStartedAt']))
+        || (resource.data.userId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['clientLocation', 'clientLocationUpdatedAt', 'clientReached', 'clientReachedAt', 'arrivalCodeHash', 'sessionStartedAt']))
+        || (resource.data.userId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientLocation', 'clientLocationUpdatedAt'])
+          && ((request.resource.data.clientLocation == null && request.resource.data.clientLocationUpdatedAt == null)
+            || (request.resource.data.clientLocation is map
+              && request.resource.data.clientLocation.keys().hasOnly(['lat', 'lng'])
+              && request.resource.data.clientLocation.lat is number
+              && request.resource.data.clientLocation.lat >= -90
+              && request.resource.data.clientLocation.lat <= 90
+              && request.resource.data.clientLocation.lng is number
+              && request.resource.data.clientLocation.lng >= -180
+              && request.resource.data.clientLocation.lng <= 180
+              && request.resource.data.clientLocationUpdatedAt is number))
+        )
+        || (resource.data.userId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && resource.data.clientReached != true
+          && request.resource.data.clientReached == true
+          && request.resource.data.clientReachedAt is number
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientReached', 'clientReachedAt']))
+        || (resource.data.providerId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && resource.data.clientReached == true
+          && resource.data.sessionStartedAt == null
+          && request.resource.data.sessionStartedAt is number
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sessionStartedAt']))
+      );
     }
 
     // Reviews: readable and writable by participating providers and drivers
