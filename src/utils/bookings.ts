@@ -12,8 +12,14 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getGatePin } from './userProfile';
 
 export type BookingStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
+
+export interface ClientLocation {
+  lat: number;
+  lng: number;
+}
 
 export interface Booking {
   id: string;
@@ -34,6 +40,12 @@ export interface Booking {
   platformFee: number;
   providerEarnings: number;
   createdAt: string;
+  clientLocation?: ClientLocation | null;
+  clientLocationUpdatedAt?: number;
+  clientReached?: boolean;
+  clientReachedAt?: number;
+  arrivalCodeHash?: string;
+  sessionStartedAt?: number;
 }
 
 export interface NewBookingRequest {
@@ -69,9 +81,11 @@ export async function createBookingRequest(input: NewBookingRequest): Promise<st
   }
 
   const platformFee = input.totalPrice * 0.1;
+  const arrivalCodeHash = await hashArrivalCode(getGatePin(input.userId));
   const { userPhoto, ...booking } = input;
   const reference = await addDoc(collection(db, 'bookings'), {
     ...booking,
+    arrivalCodeHash,
     ...(userPhoto ? { userPhoto } : {}),
     status: 'pending',
     platformFee,
@@ -102,7 +116,44 @@ function toBooking(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
     platformFee: data.platformFee,
     providerEarnings: data.providerEarnings,
     createdAt: data.createdAt,
+    clientLocation: data.clientLocation ?? null,
+    clientLocationUpdatedAt: data.clientLocationUpdatedAt,
+    clientReached: data.clientReached === true,
+    clientReachedAt: data.clientReachedAt,
+    arrivalCodeHash: data.arrivalCodeHash,
+    sessionStartedAt: data.sessionStartedAt,
   };
+}
+
+/** Updates or clears a driver's live location for an accepted booking. */
+export async function updateBookingClientLocation(
+  bookingId: string,
+  location: ClientLocation | null,
+): Promise<void> {
+  const reference = doc(db, 'bookings', bookingId);
+  await setDoc(reference, {
+    clientLocation: location,
+    clientLocationUpdatedAt: location ? Date.now() : null,
+  }, { merge: true });
+}
+
+/** Hashes an arrival code before the provider verifies it. */
+export async function hashArrivalCode(code: string): Promise<string> {
+  const normalized = code.replace(/\s/g, '').toUpperCase();
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** Records the driver's one-time arrival confirmation for an accepted booking. */
+export async function markClientReached(bookingId: string): Promise<void> {
+  const reference = doc(db, 'bookings', bookingId);
+  await setDoc(reference, { clientReached: true, clientReachedAt: Date.now() }, { merge: true });
+}
+
+/** Records the provider-confirmed start after the client arrival code matches. */
+export async function startChargingSession(bookingId: string): Promise<void> {
+  const reference = doc(db, 'bookings', bookingId);
+  await setDoc(reference, { sessionStartedAt: Date.now() }, { merge: true });
 }
 
 /** Streams all bookings for a provider. */

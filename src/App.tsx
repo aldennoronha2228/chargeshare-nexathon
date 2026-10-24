@@ -40,6 +40,7 @@ import { subscribeToPublicChargers, toClientListing } from './utils/providerChar
 import { subscribeToPublicReviews, type Review } from './utils/reviews';
 import { syncUserProfile } from './utils/userProfile';
 import { ClientAccountPage, type ClientAccountSection } from './components/ClientAccountPage';
+import { AdminPage } from './components/AdminPage';
 
 const CHAPTER_SECTION_IDS: Record<StoryChapterId, string> = {
   discover: 'chapter-discover',
@@ -131,7 +132,9 @@ export default function App() {
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthResolved(true);
-      if (nextUser) {
+      // Google admin sign-in briefly uses Firebase Auth before exchanging its token
+      // for the server session. Do not create a regular user profile for that flow.
+      if (nextUser && readAppRoute() !== 'admin') {
         void syncUserProfile(nextUser).catch((error) => {
           console.error('Could not sync user profile:', error);
         });
@@ -317,6 +320,10 @@ export default function App() {
   }, [openProfile]);
 
   // Provider portal — requires a real Firebase session
+  if (route === 'admin') {
+    return <AdminPage />;
+  }
+
   if (route === 'provider') {
     if (!authResolved) return <SessionLoading label="Checking your session…" />;
     return effectiveUser ? (

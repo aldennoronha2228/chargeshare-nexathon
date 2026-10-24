@@ -2,30 +2,76 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Admin-wide reads require both a trusted custom claim and completed MFA.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.admin == true
+        && request.auth.token.firebase.sign_in_second_factor != null;
+    }
+
     // Provider profile and chargers
     match /providers/{providerId} {
-      allow read, write: if request.auth != null && request.auth.uid == providerId;
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == providerId);
+      allow write: if request.auth != null && request.auth.uid == providerId;
       match /chargers/{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == providerId;
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == providerId);
+        allow write: if request.auth != null && request.auth.uid == providerId;
       }
     }
 
     // User profile
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Bookings: Providers can read/update bookings assigned to them, users can read their own
     match /bookings/{bookingId} {
-      allow read: if request.auth != null && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (request.auth != null && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid));
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.providerId != request.auth.uid
+        && request.resource.data.arrivalCodeHash is string
+        && request.resource.data.arrivalCodeHash.size() == 64
         && exists(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId))
         && get(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId)).data.status == 'active'
         && get(/databases/$(database)/documents/public_chargers/$(request.resource.data.chargerId)).data.providerId == request.resource.data.providerId;
-      allow update: if request.auth != null && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid);
+      allow update: if request.auth != null && (
+        (resource.data.providerId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['clientLocation', 'clientLocationUpdatedAt', 'clientReached', 'clientReachedAt', 'arrivalCodeHash', 'sessionStartedAt']))
+        || (resource.data.userId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['clientLocation', 'clientLocationUpdatedAt', 'clientReached', 'clientReachedAt', 'arrivalCodeHash', 'sessionStartedAt']))
+        || (resource.data.userId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientLocation', 'clientLocationUpdatedAt'])
+          && ((request.resource.data.clientLocation == null && request.resource.data.clientLocationUpdatedAt == null)
+            || (request.resource.data.clientLocation is map
+              && request.resource.data.clientLocation.keys().hasOnly(['lat', 'lng'])
+              && request.resource.data.clientLocation.lat is number
+              && request.resource.data.clientLocation.lat >= -90
+              && request.resource.data.clientLocation.lat <= 90
+              && request.resource.data.clientLocation.lng is number
+              && request.resource.data.clientLocation.lng >= -180
+              && request.resource.data.clientLocation.lng <= 180
+              && request.resource.data.clientLocationUpdatedAt is number))
+        )
+        || (resource.data.userId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && resource.data.get('clientReached', false) != true
+          && request.resource.data.clientReached == true
+          && request.resource.data.clientReachedAt is number
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientReached', 'clientReachedAt']))
+        || (resource.data.providerId == request.auth.uid
+          && resource.data.status == 'accepted'
+          && request.resource.data.status == 'accepted'
+          && resource.data.get('clientReached', false) == true
+          && resource.data.get('sessionStartedAt', null) == null
+          && request.resource.data.sessionStartedAt is number
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sessionStartedAt']))
+      );
     }
 
     // Reviews: readable and writable by participating providers and drivers
@@ -40,6 +86,29 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if request.auth != null && request.resource.data.providerId == request.auth.uid;
       allow delete: if request.auth != null && resource.data.providerId == request.auth.uid;
+    }
+
+    // These operational collections are read by the authenticated admin server;
+    // direct client writes stay closed until payment/admin workflows exist.
+    match /transactions/{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /refunds/{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /provider_payouts/{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /admin_audit_logs/{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /platform_settings/{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // Everything else is closed by default.

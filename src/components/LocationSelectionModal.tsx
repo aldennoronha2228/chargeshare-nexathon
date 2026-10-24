@@ -135,6 +135,17 @@ async function geocodeLocation(area: string, city: string, state: string, countr
     try { localStorage.setItem(cacheKey, JSON.stringify(location)); } catch { /* The search still succeeds without local caching. */ }
     return location;
   };
+  try {
+    const response = await fetch(`/api/geocoding/forward?${new URLSearchParams({ query }).toString()}`);
+    if (response.ok) {
+      const result = await response.json() as { latitude?: number; longitude?: number };
+      if (typeof result.latitude === 'number' && Number.isFinite(result.latitude)
+        && typeof result.longitude === 'number' && Number.isFinite(result.longitude)) {
+        return saveLocation({ latitude: result.latitude, longitude: result.longitude });
+      }
+    }
+  } catch { /* Use the existing map geocoder fallback if the server lookup is unavailable. */ }
+
   const mapTilerKey = import.meta.env.VITE_MAP_TILES_API_KEY;
   if (mapTilerKey) {
     try {

@@ -6,9 +6,10 @@ export const ROUTES = {
   clientBookings: '/client/bookings',
   clientActivity: '/client/activity',
   clientProfile: '/client/profile',
+  admin: '/admin',
 } as const;
 
-export type AppRoute = 'landing' | 'login' | 'provider' | 'findChargers' | 'clientBookings' | 'clientActivity' | 'clientProfile';
+export type AppRoute = 'landing' | 'login' | 'provider' | 'findChargers' | 'clientBookings' | 'clientActivity' | 'clientProfile' | 'admin';
 
 const PATH_TO_ROUTE: Record<string, AppRoute> = {
   [ROUTES.landing]: 'landing',
@@ -18,6 +19,7 @@ const PATH_TO_ROUTE: Record<string, AppRoute> = {
   [ROUTES.clientBookings]: 'clientBookings',
   [ROUTES.clientActivity]: 'clientActivity',
   [ROUTES.clientProfile]: 'clientProfile',
+  [ROUTES.admin]: 'admin',
 };
 
 /** In-app paths that are allowed to be used as a post-login destination. */

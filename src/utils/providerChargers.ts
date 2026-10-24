@@ -132,7 +132,7 @@ function toProviderCharger(snapshot: QueryDocumentSnapshot<DocumentData>): Provi
     spacePhoto: normalizePhoto(data.spacePhoto),
     createdAt: String(data.createdAt ?? ''),
     status: (data.status as 'active' | 'inactive') ?? 'active',
-    coordinates: data.coordinates,
+    coordinates: data.coordinates ?? null,
     locationConfirmed: data.locationConfirmed === true,
     compatibleVehicles: Array.isArray(data.compatibleVehicles) ? data.compatibleVehicles : [],
   };

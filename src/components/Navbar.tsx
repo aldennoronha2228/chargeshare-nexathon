@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Menu, X, ArrowUpRight, Download, User } from 'lucide-react';
+import { Menu, X, User } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { downloadProjectZip } from '../utils/projectZipDownload';
 import { ROUTES, navigateTo } from '../utils/appRoute';
 import { ProfileMenu, type ProfileMenuView } from './ProfileMenu';
 
@@ -28,7 +27,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeReservationCount,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [announcementVisible, setAnnouncementVisible] = useState(true);
 
   const handleMobileNav = (callback?: () => void) => {
     setMobileMenuOpen(false);
@@ -42,49 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <div className="sticky top-0 z-40 w-full border-b border-[#383C34] bg-[#22251F] text-white">
-      {/* A. Slim Announcement Strip */}
-      {announcementVisible && (
-        <div className="bg-[#173D2C] text-white px-3 sm:px-8 py-2 text-xs border-b border-[#26543E]">
-          <div className="max-w-[1360px] mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 truncate">
-              <span className="hidden sm:inline font-mono text-[#D8F36A] font-medium shrink-0">
-                NEIGHBOURHOOD NETWORK
-              </span>
-              <span aria-hidden="true" className="hidden sm:inline text-[#88A897]">·</span>
-              <span className="min-w-0 truncate text-white/90 text-[11px] sm:text-xs">
-                Have a 3.3 kW or 7.4 kW home EV charger? Share idle driveway hours with verified local drivers.
-              </span>
-              <button
-                type="button"
-                onClick={onOpenHostModal}
-                className="hidden md:inline-flex items-center gap-1 text-[#D8F36A] font-medium underline underline-offset-4 hover:text-white transition-colors shrink-0 ml-1 cursor-pointer"
-              >
-                List your charger
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={downloadProjectZip}
-                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#D8F36A] text-[#173D2C] font-mono font-bold text-[11px] rounded hover:bg-[#c9e854] transition-colors cursor-pointer"
-              >
-                <Download className="w-3 h-3" />
-                <span>Download Project (.zip)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAnnouncementVisible(false)}
-                aria-label="Dismiss announcement banner"
-                className="text-white/80 hover:text-white p-1 rounded focus-visible:outline-2 focus-visible:outline-[#D8F36A] shrink-0"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Navigation — brand + profile control on the left, links + CTA on the right */}
       <header className="max-w-[1360px] mx-auto flex items-center justify-between gap-2 sm:gap-6 lg:gap-8 px-3 sm:px-8 py-3">
         {/* Left zone: Brand wordmark, then the signed-in profile control */}
