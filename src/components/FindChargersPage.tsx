@@ -490,6 +490,13 @@ const CompactChargerCard: React.FC<CardProps> = ({
             <span aria-hidden="true" className="text-[#D8D5CA]">·</span>
             <span>{distanceLabel(charger)}</span>
           </span>
+          {charger.reviewCount > 0 && (
+            <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-[#565A52]" aria-label={`Average rating ${charger.rating.toFixed(1)} out of 5 from ${charger.reviewCount} reviews`}>
+              <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+              <span className="font-mono font-bold text-[#173D2C]">{charger.rating.toFixed(1)}</span>
+              <span>({charger.reviewCount} {charger.reviewCount === 1 ? 'review' : 'reviews'})</span>
+            </span>
+          )}
           <span className="mt-1 block truncate text-[11px] text-[#565A52]">{charger.connector}</span>
         </span>
       </button>
@@ -548,6 +555,13 @@ const MiniChargerRow: React.FC<CardProps> = ({
           <span className="mt-0.5 block truncate text-[11px] text-[#565A52]">
             {tariffLabel(charger)} · {charger.powerKw} kW · {distanceLabel(charger)}
           </span>
+          {charger.reviewCount > 0 && (
+            <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-[#565A52]" aria-label={`Average rating ${charger.rating.toFixed(1)} out of 5 from ${charger.reviewCount} reviews`}>
+              <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+              <span className="font-mono font-bold text-[#173D2C]">{charger.rating.toFixed(1)}</span>
+              <span>({charger.reviewCount})</span>
+            </span>
+          )}
         </span>
       </button>
 
