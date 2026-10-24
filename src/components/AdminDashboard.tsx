@@ -94,15 +94,13 @@ function StatusBadge({ value }: { value: string }) {
 
 function MetricCard({ label, value, detail, icon: Icon }: { label: string; value: string | number; detail: string; icon: typeof Users }) {
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-black/55">{label}</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-[#171717]">{value}</p>
-          <p className="mt-1 text-[11px] leading-4 text-black/45">{detail}</p>
-        </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F2F2F0] text-black/70"><Icon size={17} aria-hidden="true" /></span>
+    <article className="flex min-h-[102px] flex-col rounded-xl border border-black/10 bg-white p-3 sm:min-h-[112px] sm:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 text-[11px] font-medium leading-4 text-black/55 sm:text-xs">{label}</p>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F2F2F0] text-black/70 sm:h-8 sm:w-8"><Icon size={15} aria-hidden="true" /></span>
       </div>
+      <p className="mt-1 text-[22px] font-semibold leading-none tracking-tight text-[#171717] sm:text-2xl">{value}</p>
+      <p className="mt-1.5 line-clamp-2 text-[10px] leading-3.5 text-black/45 sm:text-[11px] sm:leading-4">{detail}</p>
     </article>
   );
 }
@@ -360,18 +358,18 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-black/10 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-black/10 bg-white/95 px-3 backdrop-blur sm:h-16 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" aria-label="Open navigation" onClick={() => setMobileMenuOpen(true)} className="rounded-md p-2 hover:bg-black/5 lg:hidden"><Menu size={19} /></button>
             <div className="min-w-0"><p className="truncate text-sm font-semibold">{pageTitle}</p><p className="hidden text-[10px] text-black/45 sm:block">ChargeShare administration</p></div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="hidden items-center gap-1.5 text-[10px] text-black/45 sm:inline-flex"><span className="h-1.5 w-1.5 rounded-full bg-[#315b44]" /> Live Firestore data</span>
-            <button type="button" onClick={onSignOut} className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-2 text-[11px] font-semibold hover:bg-black/5 lg:hidden"><LogOut size={14} />Sign out</button>
+            <button type="button" onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-2.5 py-1.5 text-[10px] font-semibold hover:bg-black/5 sm:gap-2 sm:px-3 sm:py-2 sm:text-[11px] lg:hidden"><LogOut size={13} />Sign out</button>
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1440px] space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <main className="mx-auto max-w-[1440px] space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-7 lg:px-8">
           {error && <div className="flex items-start gap-3 rounded-xl border border-[#D9B8B3] bg-[#F9EFED] px-4 py-3 text-xs text-[#743B33]" role="alert"><AlertCircle size={17} className="mt-0.5 shrink-0" /><p>{error}</p></div>}
 
           {section === 'accounts' && (
@@ -396,8 +394,8 @@ export const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut 
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[10px] text-black/55"><Activity size={13} /> Updates automatically</span>
               </div>
 
-              {loading ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <div key={i} className="h-28 animate-pulse rounded-xl border border-black/10 bg-white" />)}</div> : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {loading ? <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 9 }, (_, i) => <div key={i} className="min-h-[102px] animate-pulse rounded-xl border border-black/10 bg-white sm:min-h-[112px]" />)}</div> : (
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
                   <MetricCard label="Firebase accounts" value={data.authAccounts.length} detail={`${registeredCount} linked user and provider profiles`} icon={Users} />
                   <MetricCard label="Clients" value={clients.length} detail="Client profile records" icon={CarFront} />
                   <MetricCard label="Providers" value={data.providers.length} detail="Provider profile records" icon={ShieldCheck} />
