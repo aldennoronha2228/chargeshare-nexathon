@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import crypto from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -11,6 +11,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { createServer as createViteServer } from 'vite';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(rootDir, '.env') });
 const port = Number(process.env.PORT || 3001);
 const isProduction = process.env.NODE_ENV === 'production';
 const sessionCookieName = 'chargeshare_admin_session';
@@ -144,10 +145,20 @@ function readAdminAccounts() {
     const parsed = JSON.parse(process.env.ADMIN_USERS || '[]');
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((account) => typeof account?.email === 'string')
-      .map((account) => ({
-        email: account.email.trim().toLowerCase(),
-        password: typeof account.password === 'string' ? account.password : '',
-      }))
+      .map((account) => {
+        // Keep the documented { email, password } format, and accept the
+        // existing single key/value format in this project's .env as well.
+        const extraEntries = Object.entries(account).filter(([key]) => key !== 'email');
+        const passwords = typeof account.password === 'string'
+          ? [account.password]
+          : extraEntries.length === 1 && typeof extraEntries[0][1] === 'string'
+            ? [extraEntries[0][0], extraEntries[0][1]]
+            : [];
+        return {
+          email: account.email.trim().toLowerCase(),
+          passwords: passwords.filter(Boolean),
+        };
+      })
       .filter((account) => account.email.includes('@'));
   } catch {
     return [];
@@ -263,9 +274,12 @@ app.post('/api/admin/login', (request, response) => {
   const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
   const password = typeof request.body?.password === 'string' ? request.body.password : '';
   const account = adminAccounts.find((item) => item.email === email);
-  const expectedPassword = crypto.createHash('sha256').update(account?.password || 'invalid-account-password').digest();
   const suppliedPassword = crypto.createHash('sha256').update(password).digest();
-  if (!account?.password || !crypto.timingSafeEqual(expectedPassword, suppliedPassword)) {
+  const passwordMatches = account?.passwords.some((candidate) => {
+    const expectedPassword = crypto.createHash('sha256').update(candidate).digest();
+    return crypto.timingSafeEqual(expectedPassword, suppliedPassword);
+  }) ?? false;
+  if (!passwordMatches) {
     response.status(401).json({ error: 'Email or password is incorrect.' });
     return;
   }
@@ -597,5 +611,6 @@ if (isProduction) {
 
 httpServer.listen(port, '0.0.0.0', () => {
   console.log(`ChargeShare server running at http://localhost:${port}`);
+  console.log(`[admin] Loaded ${adminAccounts.length} password account(s).`);
   if (adminAccounts.length === 0) console.warn('No admin accounts are configured. Set ADMIN_USERS in the server .env file.');
 });
