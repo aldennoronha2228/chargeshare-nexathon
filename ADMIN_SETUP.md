@@ -36,6 +36,8 @@ Add `APILAYER_POSITIONSTACK_ACCESS_KEY` to `.env` to use APILayer Positionstack 
 
 Set `CLOUDINARY_URL` in `.env` using `cloudinary://<api_key>:<api_secret>@<cloud_name>`. Keep it server-only without a `VITE_` prefix. The Node backend verifies the Firebase sign-in token and signs Cloudinary uploads. Charger photos use normal public delivery; electricity bills and ownership documents use Cloudinary's authenticated delivery and are streamed to the admin review page only after an admin session is checked. Provider applications are saved with `under_review`; only the admin backend can accept or decline them.
 
+For Vercel, the upload-signature endpoint is implemented at `api/cloudinary/upload-signature.js` and is served at `/api/cloudinary/upload-signature`. Add `CLOUDINARY_URL` and `FIREBASE_WEB_API_KEY` to the Vercel project's Environment Variables for each deployment environment you use, then redeploy. `FIREBASE_WEB_API_KEY` can use the same Firebase Web API key as `VITE_FIREBASE_API_KEY`; keep the Cloudinary URL server-only and never use a `VITE_` prefix for it.
+
 ## Run
 
 ```powershell
