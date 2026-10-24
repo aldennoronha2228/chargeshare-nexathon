@@ -317,9 +317,10 @@ async function reviewProvider(request, response, providerId, session) {
 
 export default async function handler(request, response) {
   response.setHeader('X-Content-Type-Options', 'nosniff');
-  const segments = Array.isArray(request.query?.path)
-    ? request.query.path.map((part) => String(part))
-    : typeof request.query?.path === 'string' ? [request.query.path] : [];
+  const routePath = Array.isArray(request.query?.path)
+    ? request.query.path.join('/')
+    : typeof request.query?.path === 'string' ? request.query.path : '';
+  const segments = routePath.split('/').filter(Boolean);
   const route = segments.join('/');
   const method = request.method || 'GET';
 
