@@ -4,7 +4,7 @@ import { optimizeImageForUpload } from './imageOptimization';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export const CLOUDINARY_NOT_CONFIGURED = 'Cloudinary uploads are unavailable. Check the server Cloudinary credentials and restart npm run dev.';
+export const CLOUDINARY_NOT_CONFIGURED = 'Cloudinary is not configured on the app server. Add CLOUDINARY_URL (or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET) to the hosting provider’s server environment, then redeploy.';
 
 export interface CloudinaryImage {
   /** Public delivery URL. Only set for ordinary charger photos. */
@@ -33,16 +33,24 @@ interface UploadSignature {
 }
 
 async function getUploadSignature(purpose: 'charger' | 'verification', idToken: string): Promise<UploadSignature> {
-  const response = await fetch('/api/cloudinary/upload-signature', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ purpose }),
-  });
+  let response: Response;
+  try {
+    response = await fetch('/api/cloudinary/upload-signature', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose }),
+    });
+  } catch {
+    throw new Error('The upload API could not be reached. Deploy the app with its Node.js server (npm start) and make /api routes available on this site; a static-only deployment cannot issue Cloudinary upload signatures.');
+  }
   const result = await response.json().catch(() => ({})) as UploadSignature;
   if (!response.ok || !result.signature || !result.cloudName) {
     if (result.error === 'API route not found.') {
-      throw new Error('The server running this app is outdated and does not have the document upload route. Stop the old server on port 3001, then restart npm run dev from the chargeshare-nexathon folder.');
+      throw new Error('The hosted server does not have the upload API route. Redeploy the latest app with its Node.js server (npm start) and route /api/cloudinary/upload-signature to it.');
+    }
+    if (response.status === 404 || response.status === 405 || response.status === 501) {
+      throw new Error('The upload API is not available on this hosting deployment. It must run the app’s Node.js server and expose /api/cloudinary/upload-signature; static-only hosting cannot handle uploads.');
     }
     throw new Error(result.error || CLOUDINARY_NOT_CONFIGURED);
   }
