@@ -468,6 +468,9 @@ export default function App() {
             endTime: request.endTime,
             totalKwh: request.totalKwh,
             totalPrice,
+            chargerPowerKw: charger.powerKw,
+            pricePerKwh: charger.pricePerKwh,
+            pricingType: charger.pricingType ?? 'per_kwh',
           });
         }}
       />

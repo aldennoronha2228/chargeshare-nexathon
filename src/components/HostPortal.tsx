@@ -39,6 +39,7 @@ import {
 import { auth } from '../firebase';
 import { ROUTES, navigateTo } from '../utils/appRoute';
 import { AddChargerForm } from './AddChargerForm';
+import { BookingLiveLocationMap } from './BookingLiveLocationMap';
 import {
   saveProviderCharger,
   subscribeToProviderChargers,
@@ -50,10 +51,14 @@ import {
 import {
   acceptBooking,
   cancelBooking,
+  completeBooking,
+  hashArrivalCode,
   rejectBooking,
+  startChargingSession,
   subscribeToProviderBookings,
   type Booking,
 } from '../utils/bookings';
+import { ChargingSessionTimer } from './ChargingSessionTimer';
 import {
   respondToReview,
   subscribeToProviderReviews,
@@ -64,6 +69,7 @@ import {
   subscribeToProviderProfile,
   type ProviderProfile,
 } from '../utils/providerProfile';
+import { getGatePin } from '../utils/userProfile';
 
 type ProviderNavId = 'overview' | 'bookings' | 'chargers' | 'earnings' | 'account';
 
@@ -227,7 +233,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
     navigateTo(ROUTES.login);
   };
 
-  const gatePin = `#${user.uid.slice(0, 4).toUpperCase()}`;
+  const gatePin = getGatePin(user.uid);
 
   const copyGatePin = () => {
     navigator.clipboard?.writeText(gatePin);
@@ -263,7 +269,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
   const completedBookings = bookings.filter((b) => b.status === 'completed');
   const pendingBookings = bookings.filter((b) => b.status === 'pending');
   const acceptedBookings = bookings.filter((b) => b.status === 'accepted');
-  const liveSession = acceptedBookings[0];
+  const liveSession = acceptedBookings.find((booking) => booking.sessionStartedAt !== undefined);
 
   const totalRevenue = completedBookings.reduce((acc, b) => acc + b.providerEarnings, 0);
   const totalKwh = completedBookings.reduce((acc, b) => acc + (b.totalKwh || 0), 0);
@@ -714,7 +720,7 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => cancelBooking(liveSession.id)}
+                      onClick={() => void completeBooking(liveSession.id).catch((error) => console.error('Could not complete charging session:', error))}
                       className="h-10 px-3 bg-white hover:bg-red-50 border border-red-600 text-red-600 rounded font-sans text-xs uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Power size={14} />
@@ -1129,12 +1135,22 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
                     )}
 
                     {booking.status === 'accepted' && (
+                      <>
+                      {booking.sessionStartedAt ? (
+                        <ChargingSessionTimer startedAt={booking.sessionStartedAt} />
+                      ) : booking.clientReached ? (
+                        <ClientArrivalCodeForm booking={booking} />
+                      ) : (
+                        <p role="status" className="rounded-lg bg-[#F5F3F1] px-3 py-2 text-xs font-semibold text-[#636563]">Waiting for the client to confirm arrival.</p>
+                      )}
+                      <BookingLiveLocationMap location={booking.clientLocation} updatedAt={booking.clientLocationUpdatedAt} />
                       <button
                         onClick={() => cancelBooking(booking.id)}
                         className="w-full py-2 rounded border border-[#E8E6E5] hover:bg-[#F5F3F1] text-xs font-bold uppercase tracking-wider text-black"
                       >
                         Cancel Booking
                       </button>
+                      </>
                     )}
                   </div>
                 ))}
@@ -1564,5 +1580,54 @@ export const HostPortal: React.FC<HostPortalProps> = ({ user }) => {
         </div>
       </nav>
     </div>
+  );
+};
+
+const ClientArrivalCodeForm: React.FC<{ booking: Booking }> = ({ booking }) => {
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const submittedHash = await hashArrivalCode(code);
+      const accountPinHash = await hashArrivalCode(getGatePin(booking.userId));
+      if (submittedHash !== accountPinHash && submittedHash !== booking.arrivalCodeHash) {
+        setError('That code does not match. Ask the client to check the code on their screen.');
+        return;
+      }
+      await startChargingSession(booking.id);
+    } catch {
+      setError('Could not start the charging session. Check your connection and try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-2 rounded-lg border border-[#D5D5D5] bg-white p-3">
+      <label htmlFor={`arrival-code-${booking.id}`} className="block text-xs font-semibold text-[#222]">Enter the client’s arrival code to start charging</label>
+      <div className="flex gap-2">
+        <input
+          id={`arrival-code-${booking.id}`}
+          type="text"
+          value={code}
+          onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^#A-Z0-9_-]/g, '').slice(0, 5))}
+          autoComplete="off"
+          maxLength={5}
+          required
+          placeholder="#XXXX"
+          className="min-w-0 flex-1 rounded-md border border-[#B8B8B8] px-3 py-2 font-mono text-sm uppercase tracking-[0.12em]"
+        />
+        <button type="submit" disabled={submitting || code.length !== 5} className="rounded-md bg-black px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+          {submitting ? 'Checking…' : 'Start timer'}
+        </button>
+      </div>
+      {error && <p role="alert" className="text-[11px] text-[#B42318]">{error}</p>}
+    </form>
   );
 };
