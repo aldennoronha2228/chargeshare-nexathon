@@ -4,13 +4,15 @@ The admin login is handled by the Node server. Credentials are read from the pro
 
 ## Configure administrator accounts
 
-Add one or more accounts to `.env` as a JSON array. Each account can sign in with its email and password; Google sign-in is also accepted for an email in this list.
+Admin email allowlisting and password hashes are stored in the server-only Firestore collection `admin_users`. Each document uses the normalized email as its document ID and includes `email`, `active`, and `role`. Passwords are stored as salted scrypt hashes (`passwordSalt` and `passwordHash`), never as plain text. The collection is explicitly inaccessible to browser clients in `firestore.rules`; the Node/Vercel backend accesses it using Firebase Admin.
+
+To add an administrator, create an `admin_users/{email}` document from a trusted Firebase Admin environment and set `active: true`, `role: "admin"`, plus a freshly generated scrypt salt and hash. Google sign-in requires a verified Firebase email matching an active document. Email/password sign-in checks the password hash in that same document. Do not put passwords in Firestore as readable text or in a `VITE_` variable.
 
 ```dotenv
-ADMIN_USERS='[{"email":"admin@example.com","password":"use-a-long-unique-password"},{"email":"second@example.com","password":"use-another-long-unique-password"}]'
+ADMIN_USERS='[{"email":"admin@example.com","password":"legacy-startup-check-only"}]'
 ```
 
-Use long, unique passwords. Do not prefix this variable with `VITE_`, commit `.env`, or send these credentials to the browser.
+`ADMIN_USERS` is retained only as an optional local startup indicator during migration; it does not authorize login. Do not put actual passwords there, commit `.env`, or send credentials to the browser.
 
 For production, also set `ADMIN_SESSION_SECRET` to a random value of at least 32 characters. Generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`. Local development generates a temporary secret automatically; restarting the server signs out existing sessions.
 

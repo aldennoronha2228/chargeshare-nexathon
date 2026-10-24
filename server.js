@@ -206,7 +206,7 @@ function readSession(request) {
   if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return typeof session.email === 'string' && adminEmails.has(session.email) && session.expiresAt > Date.now()
+    return typeof session.email === 'string' && session.expiresAt > Date.now()
       ? session
       : null;
   } catch {
@@ -232,6 +232,19 @@ function getFirebaseAdminApp() {
     ? cert(JSON.parse(serviceAccountJson))
     : applicationDefault();
   return initializeApp({ credential, ...(projectId ? { projectId } : {}) });
+}
+
+async function getAdminRecord(email) {
+  const snapshot = await getFirestore(getFirebaseAdminApp()).collection('admin_users').doc(email).get();
+  return snapshot.exists ? snapshot.data() : null;
+}
+
+function verifyAdminPassword(password, adminRecord) {
+  if (typeof password !== 'string' || typeof adminRecord?.passwordSalt !== 'string'
+    || typeof adminRecord?.passwordHash !== 'string') return false;
+  const expected = Buffer.from(adminRecord.passwordHash, 'hex');
+  const supplied = crypto.scryptSync(password, adminRecord.passwordSalt, expected.length || 64);
+  return expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
 }
 
 function requireAdmin(request, response, next) {
@@ -268,23 +281,24 @@ app.get('/api/admin/session', (request, response) => {
   response.json({ authenticated: true, email: session.email });
 });
 
-app.post('/api/admin/login', (request, response) => {
+app.post('/api/admin/login', async (request, response) => {
   if (!requestIsSameOrigin(request)) return response.status(403).json({ error: 'Sign-in request was rejected.' });
   if (!withinLoginLimit(request)) return response.status(429).json({ error: 'Too many sign-in attempts. Wait 15 minutes and try again.' });
   const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
   const password = typeof request.body?.password === 'string' ? request.body.password : '';
-  const account = adminAccounts.find((item) => item.email === email);
-  const suppliedPassword = crypto.createHash('sha256').update(password).digest();
-  const passwordMatches = account?.passwords.some((candidate) => {
-    const expectedPassword = crypto.createHash('sha256').update(candidate).digest();
-    return crypto.timingSafeEqual(expectedPassword, suppliedPassword);
-  }) ?? false;
-  if (!passwordMatches) {
+  let adminRecord;
+  try {
+    adminRecord = await getAdminRecord(email);
+  } catch (error) {
+    console.error('[admin] Admin credential lookup failed:', error instanceof Error ? error.message : 'Unknown Firestore error.');
+    return response.status(503).json({ error: 'Admin sign-in is temporarily unavailable. Check the Firebase Admin connection.' });
+  }
+  if (!adminRecord?.active || !verifyAdminPassword(password, adminRecord)) {
     response.status(401).json({ error: 'Email or password is incorrect.' });
     return;
   }
-  setSessionCookie(response, account.email);
-  response.json({ authenticated: true, email: account.email });
+  setSessionCookie(response, email);
+  response.json({ authenticated: true, email });
 });
 
 app.post('/api/admin/google-session', async (request, response) => {
@@ -295,7 +309,8 @@ app.post('/api/admin/google-session', async (request, response) => {
   try {
     const decoded = await getAuth(getFirebaseAdminApp()).verifyIdToken(idToken);
     const email = decoded.email?.trim().toLowerCase();
-    if (!email || decoded.email_verified !== true || !adminEmails.has(email)) {
+    const adminRecord = email ? await getAdminRecord(email) : null;
+    if (!email || decoded.email_verified !== true || !adminRecord?.active) {
       return response.status(403).json({ error: 'This Google account is not on the admin allowlist.' });
     }
     setSessionCookie(response, email);

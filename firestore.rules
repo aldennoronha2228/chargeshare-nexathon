@@ -119,6 +119,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Admin sign-in records and password hashes are server-only.
+    match /admin_users/{adminId} {
+      allow read, write: if false;
+    }
+
     // Everything else is closed by default.
     match /{document=**} {
       allow read, write: if false;
